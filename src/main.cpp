@@ -27,14 +27,28 @@ TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 TODO:
 - ..\* and * duplicates
 
+v1.04
+* Now treating lines in .md5 files starting with '#' as comments
+  Elric: this may lead to a bug in parsing .sfv files
+* Fixed bug with blank lines in .md5 files
+* IsValidFileName fixed
++ Added .ed2k file output option
+
+v1.03
+* ed2k hashing method changed to the one used in eMule 0.46c
+  see http://wiki.anidb.info/w/AniDB:Ed2k-hash for details
+
+v1.02
++ Overlapped IO
+
 v1.01
-+ Output hash speed
++ Output hashing speed
 + Now using faster IO routines (~ x2 speedup)
 + Checksum verification
 + Input filelist from file / stdin
 
 v1.00
-* First Release - crc, md4, ed2k, md5, sha1, sha256, sha512 hashing
++ First Release - crc, md4, ed2k, md5, sha1, sha256, sha512 hashing
 *****************************************************************************/
 
 #include <Windows.h>
@@ -84,6 +98,7 @@ bool CheckAll = false;
 bool HashAll = false;
 bool UseStdIn = false;
 bool UseFileIn = false;
+bool Ed2kOutput = false;
 
 typedef struct entry
 {
@@ -156,18 +171,18 @@ void MakeFileList(string Mask)
   WIN32_FIND_DATA FD;
   HANDLE hSearch;
 
-  if(Recursive && (hSearch = FindFirstFile((ExtractFileDir(Mask) + "*").c_str(), &FD)) != INVALID_HANDLE_VALUE)
+  if(Recursive && (hSearch = FindFirstFile((ExtractFilePath(Mask) + "*").c_str(), &FD)) != INVALID_HANDLE_VALUE)
     do{
       if((FD.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && 
         strcmp(FD.cFileName, ".") != 0 && strcmp(FD.cFileName, "..") != 0)
-          MakeFileList(ExtractFileDir(Mask) + FD.cFileName + string("\\") + ExtractFileName(Mask));
+          MakeFileList(ExtractFilePath(Mask) + FD.cFileName + string("\\") + ExtractFileName(Mask));
     }while(FindNextFile(hSearch, &FD) != 0);
 
   if((hSearch = FindFirstFile(Mask.c_str(), &FD)) == INVALID_HANDLE_VALUE)
     return;
   do{
     if((FD.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-      FileList.insert(MakeEntry(ExtractFileDir(Mask) + FD.cFileName));
+      FileList.insert(MakeEntry(ExtractFilePath(Mask) + FD.cFileName));
   }while(FindNextFile(hSearch, &FD) != 0);
   FindClose(hSearch);
   return;
@@ -191,7 +206,7 @@ void HashFile(entry& File, bool NoProgress, const CheckSumOpts& Sums)
   }
 
   HANDLE f = CreateFile(File.Name.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 
-    FILE_FLAG_NO_BUFFERING | FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN/* | FILE_FLAG_OVERLAPPED*/, NULL);
+    FILE_FLAG_NO_BUFFERING | FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_OVERLAPPED, NULL);
   if (f == INVALID_HANDLE_VALUE)
   {
     File.Ok = false;
@@ -215,12 +230,22 @@ void HashFile(entry& File, bool NoProgress, const CheckSumOpts& Sums)
   unsigned char sha256dgst[SHA256_DIGEST_LENGTH]; 
   unsigned char sha512dgst[SHA512_DIGEST_LENGTH]; 
 
+  static unsigned char buf0[BUFSIZE];
+  static unsigned char buf1[BUFSIZE];
+  unsigned char* ptr = buf0;
+  unsigned char* ptrn;
+  // Elric [1/14/2007]: It seems unbuffered reading works without data alignment o_O
   //unsigned int SectorSize = GetSectorSize(ExtractFileDrive(File.Name));
-  static unsigned char buf[BUFSIZE];
   //char* ptr = (char*)(((unsigned int) buf + SectorSize - 1) & ~(SectorSize - 1));
   //unsigned int BufSize = (BUFSIZE - ((unsigned int) ptr - (unsigned int) buf)) & ~(SectorSize - 1));
   //unsigned char* ptr = buf;
   //unsigned int BufSize = BUFSIZE;
+
+  unsigned long long Offset = 0;
+  bool Parity = false;
+  OVERLAPPED ovr;
+  memset(&ovr, 0, sizeof(ovr));
+
 
   CRC_Init(&crcctx);
   MD4_Init(&md4ctx);
@@ -230,12 +255,32 @@ void HashFile(entry& File, bool NoProgress, const CheckSumOpts& Sums)
   SHA256_Init(&sha256ctx);
   SHA512_Init(&sha512ctx);
 
-  unsigned long n;
+  unsigned long n = 0, dummy;
   float Speed = 0.0f;
   while(true)
   {
-    ReadFile(f, buf, BUFSIZE, &n, NULL);
+    ptrn = Parity ? buf0 : buf1;
+    ovr.Offset = (unsigned int) Offset;
+    ovr.OffsetHigh = (unsigned int) (Offset >> 32);
+    unsigned int bResult = ReadFile(f, ptrn, BUFSIZE, &dummy, &ovr);
+    unsigned int LastError = GetLastError();
+    if(n != 0)
+    {
+      if(Sums.DoCRC)       CRC_Update(&crcctx,    ptr, n);
+      if(Sums.DoMD4)       MD4_Update(&md4ctx,    ptr, n);
+      if(Sums.DoED2K)     ED2K_Update(&ed2kctx,   ptr, n);
+      if(Sums.DoMD5)       MD5_Update(&md5ctx,    ptr, n);
+      if(Sums.DoSHA1)     SHA1_Update(&sha1ctx,   ptr, n);
+      if(Sums.DoSHA256) SHA256_Update(&sha256ctx, ptr, n);
+      if(Sums.DoSHA512) SHA512_Update(&sha512ctx, ptr, n);
+    }
+    if(!bResult && LastError != ERROR_IO_PENDING)
+      break;
+    GetOverlappedResult(f, &ovr, &n, TRUE);
     if (n <= 0) break;
+    ptr = ptrn;
+    Parity =! Parity;
+    Offset += n;
     if (!NoProgress)
     {
       unsigned int TickCount = GetTickCount();
@@ -250,13 +295,6 @@ void HashFile(entry& File, bool NoProgress, const CheckSumOpts& Sums)
       if(Speed != 0.0f)
         cout << "   Speed: " << fixed << showpoint << setprecision(3) << (float) Speed / (1024 * 1024) << "Mbps    ";
     }
-    if(Sums.DoCRC)       CRC_Update(&crcctx,    buf, n);
-    if(Sums.DoMD4)       MD4_Update(&md4ctx,    buf, n); 
-    if(Sums.DoED2K)     ED2K_Update(&ed2kctx,   buf, n);
-    if(Sums.DoMD5)       MD5_Update(&md5ctx,    buf, n);
-    if(Sums.DoSHA1)     SHA1_Update(&sha1ctx,   buf, n);
-    if(Sums.DoSHA256) SHA256_Update(&sha256ctx, buf, n);
-    if(Sums.DoSHA512) SHA512_Update(&sha512ctx, buf, n);
   }
   CloseHandle(f);
 
@@ -286,13 +324,24 @@ bool IsValidFileName(string Name)
 {
   if(Name.size() == 0)
     return false;
+  if(Name[Name.size()] == '/' || Name[Name.size()] == '\\')
+    return false;
+  int ColonN = 0;
   for(int i = 0; i < Name.size(); i++) 
   {
     if(!isprint(Name[i]))
       return false;
-    if(strchr("\\/:*?\"<>|", Name[i]) != NULL)
+    if(strchr("*?\"<>|", Name[i]) != NULL)
       return false;
+    if(Name[i] == ':')
+    {
+      ColonN++;
+      if(ColonN > 1)
+        return false;
+    }
   }
+  if(ColonN == 1 && (Name.size() < 2 || (Name.size() >= 2 && Name[2] != ':')))
+    return false;
   return true;
 }
 
@@ -326,10 +375,12 @@ bool CheckSumFile(string Name)
       break;
     if(f.fail())
       return false;
-    if(buf[0] == ';')
+    if(buf[0] == ';' || buf[0] == '#') // skip comments
       continue;
     string s(buf);
     s = Trim(s);
+    if(s == "") // skip blanks
+      continue;
     bool IsMD5 = false, IsCRC = false;
     string CRCFile, MD5File, CRC, MD5;
     if(s.size() >= 10)
@@ -398,9 +449,9 @@ bool CheckSumFile(string Name)
     }
     if(IsMD5)
     {
-      entry File = MakeEntry(ExtractFileDir(Name) + MD5File);
+      entry File = MakeEntry(ExtractFilePath(Name) + MD5File);
       string out = MD5File;
-      HashFile(File, false, CheckSumOpts(true, false, false, false, false, false, false));
+      HashFile(File, NoProgress, CheckSumOpts(true, false, false, false, false, false, false));
       if(!File.Ok)
       {
         out = "\rCould not open file: " + out;
@@ -423,9 +474,9 @@ bool CheckSumFile(string Name)
     }
     if(IsCRC)
     {
-      entry File = MakeEntry(ExtractFileDir(Name) + CRCFile);
+      entry File = MakeEntry(ExtractFilePath(Name) + CRCFile);
       string out = CRCFile;
-      HashFile(File, false, CheckSumOpts(false, false, false, true, false, false, false));
+      HashFile(File, NoProgress, CheckSumOpts(false, false, false, true, false, false, false));
       if(!File.Ok)
       {
         out = "\rCould not open file: " + out;
@@ -459,11 +510,12 @@ bool CheckSumFile(string Name)
 
 void Synopsis()
 {
-  cout << "arxsum - ArX Checksum Calculator" << endl;
+  cout << "arxsum - ArX Checksum Calculator v1.04" << endl;
   cout << "" << endl;
   cout << "USAGE:" << endl;
   cout << "arxsum filemask1 [filemaskN...] [options]" << endl;
   cout << "Possible options:" << endl;
+  /*
   cout << "-r          Recursive" << endl;
   cout << "-crc        Calculate crc" << endl;
   cout << "-md4        Calculate md4" << endl;
@@ -474,11 +526,30 @@ void Synopsis()
   cout << "-sha512     Calculate sha512" << endl;
   cout << "-all        Calculate all possible checksums" << endl;
   cout << "-of         Output to file with name set according to filenames processed" << endl;
+  cout << "-oed2k      Output in .ed2k file format instead of .md5" << endl;
   cout << "-o=FILE     Output to FILE. Cannot be used with -of" << endl;
   cout << "-nc         Do not check sums in *.md5 and *.sfv files, hash them instead" << endl;
   cout << "-c          Treat all input files as checksum files. Cannot be used with -nc" << endl;
   cout << "-np         Do not output progress" << endl;
   cout << "-i[=FILE]   Read filelist from FILE. If FILE is not specified, then from stdin";
+  */
+  cout << "-r         Recursive" << endl;
+  cout << "-c         Check mode - treat all input files as checksum files" << endl;
+  cout << "-omd5      Output in .md5 format (default)" << endl;
+  cout << "-osfv      Output in .sfv format" << endl;
+  cout << "-oed2k     Output in .ed2k format (in this case only ed2k hash is calculated)" << endl;
+  cout << "-crc       Calculate crc" << endl;
+  cout << "-md4       Calculate md4" << endl;
+  cout << "-ed2k      Calculate ed2k hash (calculated by default if using -oed2k)" << endl;
+  cout << "-md5       Calculate md5" << endl;
+  cout << "-sha1      Calculate sha1" << endl;
+  cout << "-sha256    Calculate sha256" << endl;
+  cout << "-sha512    Calculate sha512" << endl;
+  cout << "-all       Calculate all possible checksums" << endl;
+  cout << "-o[=FILE]  Output to FILE. If FILE is not specified, then output to file" << endl;
+  cout << "           with name set according to filenames processed" << endl;
+  cout << "-np        Do not output progress" << endl;
+  cout << "-i[=FILE]  Read filelist from FILE. If FILE is not specified, then from stdin";
   return;
 }
 
@@ -512,6 +583,8 @@ int main(int argc, char **argv)
         Sums.DoSHA512 = true;
       else if(strcmp(argv[i], "-of") == 0)
         SmartOutput = true;
+      else if(strcmp(argv[i], "-oed2k") == 0)
+        Ed2kOutput = true;
       else if(strcmp(argv[i], "-r") == 0)
         Recursive = true;
       else if(strcmp(argv[i], "-c") == 0)
@@ -538,6 +611,12 @@ int main(int argc, char **argv)
     }
     else
       Mask.push_back(argv[i]);
+  }
+
+  if(Ed2kOutput)
+  {
+    Sums = CheckSumOpts(false, false, false, false, false, false, false);
+    Sums.DoED2K = true;
   }
 
   if(!(Sums.DoCRC || Sums.DoMD4 || Sums.DoED2K || Sums.DoMD5 || Sums.DoSHA1 || Sums.DoSHA256 || Sums.DoSHA512) || 
@@ -612,6 +691,20 @@ int main(int argc, char **argv)
   if(FileList.size() == 0)
     return 0;
 
+  SumSize = Progress = 0;
+  LastTickCount = GetTickCount();
+  LastProgress = Progress;
+
+  for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++)
+  {
+    i->Date = GetFileModifyDate(i->Name);
+    i->Time = GetFileModifyTime(i->Name);
+    SumSize += (i->Size = GetFileSize(i->Name));
+  }
+
+  for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++)
+    HashFile(*i, NoProgress, Sums);
+
   ostream* out = &cout;
 
   if(SmartOutput)
@@ -634,7 +727,9 @@ int main(int argc, char **argv)
       s = "sum";
     if(Sums.DoMD5)
       s += ".md5";
-    
+    else if(Ed2kOutput)
+      s += ".ed2k";
+
     ofstream* f = new ofstream;
     f->open(s.c_str());
     if(f->is_open())
@@ -652,68 +747,63 @@ int main(int argc, char **argv)
       delete f;
   }
 
-  *out << "; Generated by ArXSum v1.01 on " << GetDate() << " at " << GetTime() << endl;
-  *out << "; ArXSum includes cryptographic software written by Eric Young (eay@cryptsoft.com)" << endl;
-  *out << "; (c) Alexander 'Elric' Fokin, [ArX] Team, 2007" << endl;
-  *out << ";" << endl;
+  if(!Ed2kOutput)
+  {
+    *out << "; Generated by ArXSum v1.04 on " << GetDate() << " at " << GetTime() << endl;
+    *out << "; ArXSum includes cryptographic software written by Eric Young (eay@cryptsoft.com)" << endl;
+    *out << "; (c) Alexander 'Elric' Fokin, [ArX] Team, 2007" << endl;
+    *out << ";" << endl;
 
-  SumSize = Progress = 0;
-  LastTickCount = GetTickCount();
-  LastProgress = Progress;
+    for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+      *out << "; " << setw(12) << i->Size << "  " << i->Time << " " << i->Date << " " << i->Name << endl;
 
-  for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++)
-  {
-    i->Date = GetFileModifyDate(i->Name);
-    i->Time = GetFileModifyTime(i->Name);
-    SumSize += (i->Size = GetFileSize(i->Name));
+    if(Sums.DoCRC)
+    {
+      *out << ";" << endl << "; * CRC Block *" << endl;
+      for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+        *out << "; " << i->CRC << " *" << i->Name << endl;
+    }
+    if(Sums.DoMD4)
+    {
+      *out << ";" << endl << "; * MD4 Block *" << endl;
+      for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+        *out << "; " << i->MD4 << " *" << i->Name << endl;
+    }
+    if(Sums.DoED2K)
+    {
+      *out << ";" << endl << "; * ED2K Block *" << endl;
+      for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+        *out << "; " << i->ED2K << " *" << i->Name << endl;
+    }
+    if(Sums.DoSHA1)
+    {
+      *out << ";" << endl << "; * SHA1 Block *" << endl;
+      for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+        *out << "; " << i->SHA1 << " *" << i->Name << endl;
+    }
+    if(Sums.DoSHA256)
+    {
+      *out << ";" << endl << "; * SHA256 Block *" << endl;
+      for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+        *out << "; " << i->SHA256 << " *" << i->Name << endl;
+    }
+    if(Sums.DoSHA512)
+    {
+      *out << ";" << endl << "; * SHA512 Block *" << endl;
+      for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+        *out << "; " << i->SHA512 << " *" << i->Name << endl;
+    }
+    if(Sums.DoMD5)
+    {
+      for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+        *out << i->MD5 << " *" << i->Name << endl;
+    }
   }
-
-  for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++)
-    HashFile(*i, NoProgress, Sums);
-
-  for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-    *out << "; " << setw(12) << i->Size << "  " << i->Time << " " << i->Date << " " << i->Name << endl;
-
-  if(Sums.DoCRC)
+  else
   {
-    *out << ";" << endl << "; * CRC Block *" << endl;
+    //ed2k://|file|Amaenaide yo!! Katsu!! - 01 =Mendoi=.avi|244576256|bd4bffffc7664e11e85485383c984507|/
     for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-      *out << "; " << i->CRC << " *" << i->Name << endl;
-  }
-  if(Sums.DoMD4)
-  {
-    *out << ";" << endl << "; * MD4 Block *" << endl;
-    for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-      *out << "; " << i->MD4 << " *" << i->Name << endl;
-  }
-  if(Sums.DoED2K)
-  {
-    *out << ";" << endl << "; * ED2K Block *" << endl;
-    for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-      *out << "; " << i->ED2K << " *" << i->Name << endl;
-  }
-  if(Sums.DoSHA1)
-  {
-    *out << ";" << endl << "; * SHA1 Block *" << endl;
-    for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-      *out << "; " << i->SHA1 << " *" << i->Name << endl;
-  }
-  if(Sums.DoSHA256)
-  {
-    *out << ";" << endl << "; * SHA256 Block *" << endl;
-    for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-      *out << "; " << i->SHA256 << " *" << i->Name << endl;
-  }
-  if(Sums.DoSHA512)
-  {
-    *out << ";" << endl << "; * SHA512 Block *" << endl;
-    for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-      *out << "; " << i->SHA512 << " *" << i->Name << endl;
-  }
-  if(Sums.DoMD5)
-  {
-    for(set<entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-      *out << i->MD5 << " *" << i->Name << endl;
+      *out << "ed2k://|file|" << ExtractFileName(i->Name) << "|" << i->Size << "|" << i->ED2K << "|/" << endl;
   }
 
   if(out != &cout)

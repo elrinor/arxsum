@@ -24,7 +24,7 @@ std::string ExtractFileName(std::string Path);
 
 std::string ExtractFileExt(std::string Path);
 
-std::string ExtractFileDir(std::string Path);
+std::string ExtractFilePath(std::string Path);
 
 std::string ExtractFileDrive(std::string Path);
 
@@ -39,5 +39,7 @@ std::string GetFileModifyTime(std::string FileName);
 std::string GetFileModifyDate(std::string FileName);
 
 unsigned long long GetFileSize(std::string FileName);
+
+//std::string HtmlEncode(std::string s);
 
 #endif

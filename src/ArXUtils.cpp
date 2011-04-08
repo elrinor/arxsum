@@ -67,7 +67,7 @@ string ExtractFileExt(string Path)
     return Path.substr(pos + 1);
 }
 
-string ExtractFileDir(string Path)
+string ExtractFilePath(string Path)
 {
   unsigned int pos = Path.find_last_of('\\');
   if(pos == string::npos)
@@ -159,3 +159,11 @@ unsigned long long GetFileSize(string FileName)
   FindClose(hSearch);
   return ((unsigned long long)FD.nFileSizeHigh << 32) + FD.nFileSizeLow;
 }
+
+/*
+string HtmlEncode(string s)
+{
+  string result;
+  for(int i = 0; i < s.size(); i++)
+
+}*/
