@@ -38,6 +38,14 @@ bool IsHex(char c)
   }
 }
 
+bool IsHex(const string s)
+{
+  for(int i = 0; i < s.size(); i++)
+    if(!IsHex(s[i]))
+      return false;
+  return true;
+}
+
 bool IsBlank(char c)
 {
   switch(c) 

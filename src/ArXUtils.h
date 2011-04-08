@@ -18,6 +18,8 @@ std::string HexDump(unsigned char* Data, unsigned int Size);
 
 bool IsHex(char c);
 
+bool IsHex(const std::string s);
+
 bool IsBlank(char c);
 
 std::string ExtractFileName(std::string Path);
