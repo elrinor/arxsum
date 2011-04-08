@@ -13,6 +13,14 @@ string UpperCase(const string s)
   return result;
 }
 
+string LowerCase(const string s)
+{
+  string result = s;
+  for(int i = 0; i < result.size(); i++)
+    result[i] = tolower(result[i]);
+  return result;
+}
+
 string HexDump(unsigned char* Data, unsigned int Size)
 {
   string result;

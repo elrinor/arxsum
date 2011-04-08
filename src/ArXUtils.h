@@ -14,6 +14,8 @@ template<class T> std::string ToStr(T i)
 
 std::string UpperCase(const std::string s);
 
+std::string LowerCase(const std::string s);
+
 std::string HexDump(unsigned char* Data, unsigned int Size);
 
 bool IsHex(char c);
