@@ -27,6 +27,16 @@ TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 TODO:
 - ..\* and * duplicates
 
+v1.10
+* Fixed oef without eoln issue
+* FILE_SHARE_READ added in CreateFile
+
+v1.09
+* Fixed absolute paths in .md5 files
+
+v1.08
++ Simultaneous output into several files with different formats
+
 v1.07
 * IsValidFileName fixed - there were bugs with characters with code > 127
 
@@ -87,14 +97,14 @@ using namespace std;
 #undef min
 #define FILEBUFSIZE	1024*1024
 #define IOBUFSIZE 16384
-#define VERSION "v1.07"
+#define VERSION "v1.10"
 
 enum CheckSumType
 {
-  CS_CRC,
-  CS_MD4,
-  CS_ED2K,
   CS_MD5,
+  CS_CRC,
+  CS_ED2K,
+  CS_MD4,
   CS_SHA1,
   CS_SHA256,
   CS_SHA512,
@@ -106,10 +116,19 @@ enum OutputFormatType
 {
   OF_MD5,
   OF_SFV,
-  OF_ED2K
+  OF_ED2K,
+  OF_COUNT
 };
 
-const char* CheckSumNames[] = {"CRC", "MD4", "ED2K", "MD5", "SHA1", "SHA256", "SHA512"};
+enum OutputType
+{
+  O_NONE,
+  O_FILE,
+  O_STD,
+  O_SMART
+};
+
+const char* CheckSumNames[] = {"MD5", "CRC", "ED2K", "MD4", "SHA1", "SHA256", "SHA512"};
 
 const char* CheckSumExts[] = {"MD5", "SFV", "ED2K"};
 
@@ -165,14 +184,14 @@ typedef struct ThreadParam
 } ThreadParam;
 
 CheckSumOpts Do(false);
-OutputFormatType OutputFormat = OF_MD5; 
-bool SmartOutput = false;
+OutputType OutputFormats[OF_COUNT] = {O_NONE, O_NONE, O_NONE};
+string OutputFiles[OF_COUNT];
 bool FileOutput = false;
 bool Recursive = false;
-bool NoProgress = false;
+bool Quiet = false;
 bool CheckMode = false;
-bool UseStdIn = false;
-bool UseFileIn = false;
+bool UseFileList = false;
+bool ReadFileListFromStdIn = false;
 bool MultiThreaded = false;
 
 class Entry
@@ -210,8 +229,7 @@ public:
 
 vector<string> Mask;
 set<Entry> FileList;
-string OutFile;
-string InFile;
+string ListFile;
 
 unsigned long long SumSize = 0, Progress;
 unsigned int LastTickCount;
@@ -227,6 +245,26 @@ unsigned int GetSectorSize(string RootPath)
     return SectorSize;
   else
     return 0;
+}
+
+void failed(const char *msg) 
+{
+  DWORD fm;
+  char *msg1, *msg2;
+  const char *args[2];
+
+  fm = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+    NULL, GetLastError(), 0, (LPTSTR)&msg1, 0, NULL);
+  if(fm == 0)
+    ExitProcess(1);
+  args[0] = msg;
+  args[1] = msg1;
+  fm=FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_STRING|FORMAT_MESSAGE_ARGUMENT_ARRAY,
+    "%1: %2", 0, 0, (LPTSTR)&msg2, 0, (va_list*)&args[0]);
+  if(fm == 0)
+    ExitProcess(1);
+  MessageBox(NULL, msg2, "Error", MB_OK|MB_ICONERROR);
+  ExitProcess(1);
 }
 
 void MakeFileList(string Mask)
@@ -274,15 +312,16 @@ DWORD WINAPI HashThreadFunc(LPVOID lpParam)
   return 0;
 }
 
-void HashFile(Entry& File, bool NoProgress, bool MultiThreaded, const CheckSumOpts& Do)
+void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& Do)
 {
+  bool StdInput = (File.Name == "-");
   bool SelfProgressOnly = false;
-  if(!NoProgress && SumSize == 0)
+  if(!Quiet && SumSize == 0)
   {
     SelfProgressOnly = true;
     SumSize = GetFileSize(File.Name);
     if(SumSize == 0)
-      NoProgress = true;
+      Quiet = true;
     else
     {
       Progress = 0;
@@ -294,12 +333,16 @@ void HashFile(Entry& File, bool NoProgress, bool MultiThreaded, const CheckSumOp
   if(MultiThreaded && File.Size <= FILEBUFSIZE)
     MultiThreaded = false;
 
-  HANDLE f = CreateFile(File.Name.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 
-    FILE_FLAG_NO_BUFFERING | FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_OVERLAPPED, NULL);
-  if (f == INVALID_HANDLE_VALUE)
+  HANDLE f;
+  if(!StdInput)
+    f = CreateFile(File.Name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 
+      FILE_FLAG_NO_BUFFERING | FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_OVERLAPPED, NULL);
+  else
+    f = GetStdHandle(STD_INPUT_HANDLE);
+  if(f == INVALID_HANDLE_VALUE)
   {
     File.Ok = false;
-    if(!NoProgress)
+    if(!Quiet)
       Progress += File.Size;
     return;
   }
@@ -366,23 +409,27 @@ void HashFile(Entry& File, bool NoProgress, bool MultiThreaded, const CheckSumOp
     }
   }
 
-  unsigned long n = 0, dummy;
+  unsigned long read = 0;
   float Speed = 0.0f;
   while(true)
   {
     ptrn = Parity ? buf0 : buf1;
     ovr.Offset = (unsigned int) Offset;
     ovr.OffsetHigh = (unsigned int) (Offset >> 32);
-    unsigned int bResult = ReadFile(f, ptrn, FILEBUFSIZE, &dummy, &ovr);
+    unsigned int bResult;
+    if(!StdInput)
+      bResult = ReadFile(f, ptrn, FILEBUFSIZE, NULL, &ovr);
+    else
+      bResult = ReadFile(f, ptrn, 1024, &read, NULL);
     unsigned int LastError = GetLastError();
-    if(n != 0)
+    if(read != 0)
     {
       if(MultiThreaded)
       {
         for(int i = 0; i < CS_COUNT; i++) if(Do[i])        
         {
           Params[i].ptr = ptr;
-          Params[i].n = n;
+          Params[i].n = read;
           SetEvent(Params[i].hBeginHash);
         }
         for(int i = 0; i < CS_COUNT; i++) if(Do[i])
@@ -390,23 +437,24 @@ void HashFile(Entry& File, bool NoProgress, bool MultiThreaded, const CheckSumOp
       }
       else
       {
-        if(Do[CS_CRC])       CRC_Update(&crcctx,    ptr, n);
-        if(Do[CS_MD4])       MD4_Update(&md4ctx,    ptr, n);
-        if(Do[CS_ED2K])     ED2K_Update(&ed2kctx,   ptr, n);
-        if(Do[CS_MD5])       MD5_Update(&md5ctx,    ptr, n);
-        if(Do[CS_SHA1])     SHA1_Update(&sha1ctx,   ptr, n);
-        if(Do[CS_SHA256]) SHA256_Update(&sha256ctx, ptr, n);
-        if(Do[CS_SHA512]) SHA512_Update(&sha512ctx, ptr, n);
+        if(Do[CS_CRC])       CRC_Update(&crcctx,    ptr, read);
+        if(Do[CS_MD4])       MD4_Update(&md4ctx,    ptr, read);
+        if(Do[CS_ED2K])     ED2K_Update(&ed2kctx,   ptr, read);
+        if(Do[CS_MD5])       MD5_Update(&md5ctx,    ptr, read);
+        if(Do[CS_SHA1])     SHA1_Update(&sha1ctx,   ptr, read);
+        if(Do[CS_SHA256]) SHA256_Update(&sha256ctx, ptr, read);
+        if(Do[CS_SHA512]) SHA512_Update(&sha512ctx, ptr, read);
       }
     }
     if(!bResult && LastError != ERROR_IO_PENDING)
       break;
-    GetOverlappedResult(f, &ovr, &n, TRUE);
-    if (n <= 0) break;
+    if(!StdInput)
+      GetOverlappedResult(f, &ovr, &read, TRUE);
+    if (read <= 0) break;
     ptr = ptrn;
     Parity =! Parity;
-    Offset += n;
-    if (!NoProgress)
+    Offset += read;
+    if (!Quiet)
     {
       unsigned int TickCount = GetTickCount();
       if (TickCount - LastTickCount > 1000)
@@ -415,7 +463,7 @@ void HashFile(Entry& File, bool NoProgress, bool MultiThreaded, const CheckSumOp
         LastTickCount = TickCount;
         LastProgress = Progress;
       }
-      Progress += n;
+      Progress += read;
       cout << "\rProgress: " << setw(3) << 100 * Progress / SumSize << "%";
       if(Speed != 0.0f)
         cout << "   Speed: " << fixed << showpoint << setprecision(3) << (float) Speed / (1024 * 1024) << "Mbps    ";
@@ -479,9 +527,17 @@ bool IsValidFileName(string Name)
         return false;
     }
   }
-  if(ColonN == 1 && (Name.size() < 2 || (Name.size() >= 2 && Name[2] != ':')))
+  if(ColonN == 1 && (Name.size() < 2 || (Name.size() >= 2 && Name[1] != ':')))
     return false;
   return true;
+}
+
+bool IsAbsoluteFileName(string Name)
+{
+  if(Name[1] == ':' && (Name[2] == '\\' || Name[2] == '/'))
+    return true;
+  else
+    return false;
 }
 
 bool CheckSumFile(string Name)
@@ -489,31 +545,36 @@ bool CheckSumFile(string Name)
   bool result = true;
   unsigned long long FileSize = GetFileSize(Name);
   unsigned long long Read = 0;
+  bool FileNeedsDelete = (Name != "-");
+  istream* f;
 
   cout << "  " << Name << ":";
-
-  ifstream f;
-  f.open(Name.c_str());
-  if(!f.is_open())
+  if(Name != "-")
   {
-    cout << "Could not open for reading." << endl << endl;
-    return false;
+    f = new ifstream;
+    ((ifstream*)f)->open(Name.c_str());
+    if(!((ifstream*)f)->is_open())
+    {
+      cout << "Could not open for reading." << endl << endl;
+      return false;
+    }
   }
+  else
+    f = &cin;
+    
   cout << endl;
-  
+
   unsigned int Errors = 0;
   unsigned int Successes = 0;
   unsigned int LineN = 0;
   char buf[IOBUFSIZE];
   while(true)
   {
-    f.getline(buf, IOBUFSIZE);
+    if(f->eof() || f->fail())
+      break;
+    f->getline(buf, IOBUFSIZE);
     LineN++;
     Read += strlen(buf) + 2;
-    if(f.eof())
-      break;
-    if(f.fail())
-      return false;
     if(buf[0] == ';' || buf[0] == '#') // skip comments   TODO: #???
       continue;
     string s(buf);
@@ -580,9 +641,9 @@ bool CheckSumFile(string Name)
       return false;
     }
 
-    Entry File(ExtractFilePath(Name) + FileName[SumType]);
+    Entry File(((IsAbsoluteFileName(FileName[SumType]))?"":ExtractFilePath(Name)) + FileName[SumType]);
     string out = FileName[SumType];
-    HashFile(File, NoProgress, MultiThreaded, CheckSumOpts(SumType));
+    HashFile(File, Quiet, MultiThreaded, CheckSumOpts(SumType));
     if(!File.Ok)
     {
       out = "\rCould not open file: " + out;
@@ -603,7 +664,8 @@ bool CheckSumFile(string Name)
       cout << string(80 - out.size() - 1, ' '); // Clean progress
     cout << endl;
   }
-  f.close();
+  if(FileNeedsDelete)
+    ((ifstream*)f)->close();
 
   if(Read < FileSize || (Errors == 0 && Successes == 0))
     cout << "Unreadable file format (line " << LineN << ")" << endl << endl;
@@ -639,136 +701,164 @@ void Synopsis()
   cout << "  If no option is provided, then -omd5 is used." << endl;
   cout << endl;
   cout << "Input options:" << endl;
-  cout << "-l[=FILE]       Read file masks from FILE. If FILE is not specified, then from stdin" << endl;
-  cout << "  If no filemask is provided, then checksum of input from stdin is calculated." << endl;
+  cout << "-l[=FILE]       Read file masks from FILE. If FILE is not specified, then from" << endl;
+  cout << "                stdin" << endl;
+  cout << "  If no filemask is provided, then checksum of stdin is calculated." << endl;
   cout << endl;
   cout << "Other options:" << endl;
   cout << "-r              Recursive" << endl;
   cout << "-m              Multithreaded" << endl;
   cout << "-c              Check mode - treat all input files as checksum files" << endl;
   cout << "-q              Do not output progress" << endl;
+  cout << "-h, --help      Display this help" << endl;
   return;
 }
 
 int main(int argc, char **argv)
 {
-  if (argc == 1)
-  {
-    Synopsis();
-    return 0;
-  }
-  
   for(int i = 1; i < argc; i++)
   {
-    if(argv[i][0]=='-')
+    string arg(argv[i]);
+    if(arg[0]=='-')
     {
-           if(strcmp(argv[i], "-r") == 0)
+      if(arg == "-h" || arg == "--help")
+      {
+        Synopsis();
+        exit(0);
+      }
+      else if(arg == "-r")
         Recursive = true;
-      else if(strcmp(argv[i], "-m") == 0)
+      else if(arg == "-m")
         MultiThreaded = true;
-      else if(strcmp(argv[i], "-c") == 0)
+      else if(arg == "-c")
         CheckMode = true;
-      else if(strcmp(argv[i], "-omd5") == 0)
-        OutputFormat = OF_MD5;
-      else if(strcmp(argv[i], "-osfv") == 0)
-        OutputFormat = OF_SFV;
-      else if(strcmp(argv[i], "-oed2k") == 0)
-        OutputFormat = OF_ED2K;
-      else if(strcmp(argv[i], "-all") == 0)
+      else if(arg == "-q")
+        Quiet = true;
+      else if(arg == "-all")
         Do = CheckSumOpts(true);
-      else if(strcmp(argv[i], "-crc") == 0)
+      else if(arg == "-crc")
         Do[CS_CRC] = true;
-      else if(strcmp(argv[i], "-md4") == 0)
+      else if(arg == "-md4")
         Do[CS_MD4] = true;
-      else if(strcmp(argv[i], "-ed2k") == 0)
+      else if(arg == "-ed2k")
         Do[CS_ED2K] = true;
-      else if(strcmp(argv[i], "-md5") == 0)
+      else if(arg == "-md5")
         Do[CS_MD5] = true;
-      else if(strcmp(argv[i], "-sha1") == 0)
+      else if(arg == "-sha1")
         Do[CS_SHA1] = true;
-      else if(strcmp(argv[i], "-sha256") == 0)
+      else if(arg == "-sha256")
         Do[CS_SHA256] = true;
-      else if(strcmp(argv[i], "-sha512") == 0)
+      else if(arg == "-sha512")
         Do[CS_SHA512] = true;
-      else if(strcmp(argv[i], "-np") == 0)
-        NoProgress = true;
-      else if(strlen(argv[i]) >= 2 && argv[i][1] == 'o')
+      else if(arg.substr(0, 5) == "-omd5")
       {
-        if(strlen(argv[i]) > 3 && argv[i][2] == '=')
+        if(arg.size() > 6 && arg[5] == '=')
         {
-          FileOutput = true;
-          OutFile = &argv[i][3];
+          if(arg.substr(6) == "*")
+            OutputFormats[OF_MD5] = O_SMART;
+          else
+          {
+            OutputFormats[OF_MD5] = O_FILE;
+            OutputFiles[OF_MD5] = arg.substr(6);
+          }
         }
-        else if(strlen(argv[i]) == 2)
-          SmartOutput = true;
+        else
+          OutputFormats[OF_MD5] = O_STD;
       }
-      else if(strlen(argv[i]) >= 2 && argv[i][1] == 'i')
+      else if(arg.substr(0, 5) == "-osfv")
       {
-        if(strlen(argv[i]) > 3 && argv[i][2] == '=')
+        if(arg.size() > 6 && arg[5] == '=')
         {
-          UseFileIn = true;
-          InFile = &argv[i][3];
+          if(arg.substr(6) == "*")
+            OutputFormats[OF_SFV] = O_SMART;
+          else
+          {
+            OutputFormats[OF_SFV] = O_FILE;
+            OutputFiles[OF_SFV] = arg.substr(6);
+          }
         }
-        else if(strlen(argv[i]) == 2)
-          UseStdIn = true;
+        else
+          OutputFormats[OF_SFV] = O_STD;
       }
-      else
-        Mask.push_back(argv[i]); // TODO: Hmmm?
+      else if(arg.substr(0, 6) == "-oed2k")
+      {
+        if(arg.size() > 7 && arg[6] == '=')
+        {
+          if(arg.substr(7) == "*")
+            OutputFormats[OF_ED2K] = O_SMART;
+          else
+          {
+            OutputFormats[OF_ED2K] = O_FILE;
+            OutputFiles[OF_ED2K] = arg.substr(7);
+          }
+        }
+        else
+          OutputFormats[OF_ED2K] = O_STD;
+      }
+      else if(arg.substr(0, 2) == "-l")
+      {
+        UseFileList = true;
+        if(arg.size() > 3 && arg[2] == '=')
+          ListFile = arg.substr(3);
+        else
+          ReadFileListFromStdIn = true;
+      }
     }
     else
       Mask.push_back(argv[i]);
   }
 
-  if(OutputFormat == OF_ED2K)
-    Do = CheckSumOpts(CS_ED2K);
-  if(OutputFormat == OF_SFV)
-    Do = CheckSumOpts(CS_CRC);
-
-  for(int i = 0; i <= CS_COUNT; i++) if(i == CS_COUNT)
+  if(OutputFormats[OF_MD5] == O_NONE && OutputFormats[OF_SFV] == O_NONE && OutputFormats[OF_ED2K] == O_NONE)
+    OutputFormats[OF_MD5] = O_STD;
+  if((OutputFormats[OF_MD5] == O_STD)?0:1 + (OutputFormats[OF_SFV] == O_STD)?0:1 + (OutputFormats[OF_ED2K] == O_STD)?0:1 > 1)
   {
-    if(!CheckMode)
-    {
-      Synopsis();
-      return 0;
-    }
+    cerr << "ERROR: Cannot output to stdout in several different formats." << endl;
+    exit(1);
   }
-  else if(Do[i])
-    break;
 
-  if(UseFileIn)
+  if(OutputFormats[OF_MD5] != O_NONE)
+    Do[CS_MD5] = true;
+  if(OutputFormats[OF_SFV] != O_NONE)
+    Do[CS_CRC] = true;
+  if(OutputFormats[OF_ED2K] != O_NONE)
+    Do[CS_ED2K] = true;
+
+  while(UseFileList)
   {
-    ifstream f;
-    f.open(InFile.c_str());
-    if(f.is_open())
+    istream* f;
+    if(ReadFileListFromStdIn)
+      f = &cin;
+    else
     {
-      char buf[IOBUFSIZE];
-      while(true)
+      f = new ifstream;
+      ((ifstream*)f)->open(ListFile.c_str());
+      if(!((ifstream*)f)->is_open())
       {
-        f.getline(buf, IOBUFSIZE);
-        if(f.eof() || f.fail())
-          break;
-        Mask.push_back(buf);
+        delete f;
+        break;
       }
     }
-  }
-
-  if(UseStdIn)
-  {
     char buf[IOBUFSIZE];
     while(true)
     {
-      cin.getline(buf, IOBUFSIZE);
-      if(cin.eof() || cin.fail())
+      f->getline(buf, IOBUFSIZE);
+      if(f->eof() || f->fail())
         break;
       Mask.push_back(buf);
     }
+    if(!ReadFileListFromStdIn)
+    {
+      ((ifstream*)f)->close();
+      delete f;
+    }
+    break;
   }
 
   for(vector<string>::iterator i = Mask.begin(); i != Mask.end(); i++)
     MakeFileList(*i);
 
-  if(FileList.size() == 0)
-    return 0;
+  if(FileList.size() == 0) // Hash stdin
+    FileList.insert(Entry("-"));
 
   if(CheckMode)
   {
@@ -790,75 +880,79 @@ int main(int argc, char **argv)
     }
 
     for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++)
-      HashFile(*i, NoProgress, MultiThreaded, Do);
+      HashFile(*i, Quiet, MultiThreaded, Do);
 
-    ostream* out = &cout;
-
-    if(SmartOutput || FileOutput)
+    for(int OutFmt = 0; OutFmt < OF_COUNT; OutFmt++)
     {
-      if(SmartOutput)
+      if(OutputFormats[OutFmt] == O_NONE)
+        continue;
+      ostream* out = &cout;
+      if(OutputFormats[OutFmt] == O_SMART || OutputFormats[OutFmt] == O_FILE)
       {
-        OutFile = FileList.begin()->Name;
-        for(set<Entry>::iterator i = ++FileList.begin(); i != FileList.end(); i++)
+        if(OutputFormats[OutFmt] == O_SMART)
         {
-          int j;
-          for(j = 0; j < OutFile.size(); j++)
-            if(i->Name[j] != OutFile[j])
+          OutputFiles[OutFmt] = FileList.begin()->Name;
+          for(set<Entry>::iterator i = ++FileList.begin(); i != FileList.end(); i++)
+          {
+            int j;
+            for(j = 0; j < OutputFiles[OutFmt].size(); j++)
+              if(i->Name[j] != OutputFiles[OutFmt][j])
+                break;
+            OutputFiles[OutFmt].erase(j);
+            if(OutputFiles[OutFmt].empty())
               break;
-          OutFile.erase(j);
-          if(OutFile.empty())
-            break;
+          }
+          OutputFiles[OutFmt] = Trim(OutputFiles[OutFmt]);
+          if(OutputFiles[OutFmt].empty())
+            OutputFiles[OutFmt] = "sum";
+          OutputFiles[OutFmt] += "." + LowerCase(CheckSumExts[OutFmt]);
         }
-        OutFile = Trim(OutFile);
-        if(OutFile.empty())
-          OutFile = "sum";
-        OutFile += "." + LowerCase(CheckSumExts[OutputFormat]);
+
+        ofstream* f = new ofstream;
+        f->open(OutputFiles[OutFmt].c_str());
+        if(f->is_open())
+          out = f;
+        else
+          delete f;
       }
 
-      ofstream* f = new ofstream;
-      f->open(OutFile.c_str());
-      if(f->is_open())
-        out = f;
-      else
-        delete f;
-    }
-
-    if(OutputFormat == OF_ED2K)
-    {
-      //ed2k://|file|Amaenaide yo!! Katsu!! - 01 =Mendoi=.avi|244576256|bd4bffffc7664e11e85485383c984507|/
-      for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-        *out << "ed2k://|file|" << ExtractFileName(i->Name) << "|" << i->Size << "|" << i->Digest[CS_ED2K] << "|/" << endl;
-    }
-    else
-    {
-      *out << "; Generated by ArXSum " << VERSION << " on " << GetDate() << " at " << GetTime() << endl;
-      *out << "; ArXSum includes cryptographic software written by Eric Young (eay@cryptsoft.com)" << endl;
-      *out << "; (c) Alexander 'Elric' Fokin, [ArX] Team, 2007" << endl;
-      *out << ";" << endl;
-      for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-        *out << "; " << setw(12) << i->Size << "  " << i->Time << " " << i->Date << " " << i->Name << endl;
-      if(OutputFormat == OF_SFV)
+      if(OutFmt == OF_ED2K)
       {
+        //ed2k://|file|Amaenaide yo!! Katsu!! - 01 =Mendoi=.avi|244576256|bd4bffffc7664e11e85485383c984507|/
         for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-          *out << i->Name << " " << i->Digest[CS_CRC] << endl;
+          *out << "ed2k://|file|" << ExtractFileName(i->Name) << "|" << i->Size << "|" << i->Digest[CS_ED2K] << "|/" << endl;
       }
       else
       {
-        for(int n = 0; n < CS_COUNT; n++) if(Do[n] && n != CS_MD5)
+        *out << "; Generated by ArXSum " << VERSION << " on " << GetDate() << " at " << GetTime() << endl;
+        *out << "; ArXSum includes cryptographic software written by Eric Young (eay@cryptsoft.com)" << endl;
+        *out << "; (c) Alexander 'Elric' Fokin, [ArX] Team, 2007" << endl;
+        *out << ";" << endl;
+        for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+          *out << "; " << setw(12) << i->Size << "  " << i->Time << " " << i->Date << " " << i->Name << endl;
+        if(OutFmt == OF_SFV)
         {
-          *out << ";" << endl << "; * " << CheckSumNames[n] << " Block *" << endl;
           for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-            *out << "; " << i->Digest[n] << " *" << i->Name << endl;
+            *out << i->Name << " " << i->Digest[CS_CRC] << endl;
         }
-        for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
-          *out << i->Digest[CS_MD5] << " *" << i->Name << endl;
+        else
+        {
+          for(int n = 0; n < CS_COUNT; n++) if(Do[n] && n != CS_MD5 && ((n < OF_COUNT)?(OutputFormats[n] == O_NONE):true))
+          {
+            *out << ";" << endl << "; * " << CheckSumNames[n] << " Block *" << endl;
+            for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+              *out << "; " << i->Digest[n] << " *" << i->Name << endl;
+          }
+          for(set<Entry>::iterator i = FileList.begin(); i != FileList.end(); i++) if(i->Ok)
+            *out << i->Digest[CS_MD5] << " *" << i->Name << endl;
+        }
       }
-    }
 
-    if(out != &cout)
-    {
-      ((ofstream*) out)->close();
-      delete out;
+      if(out != &cout)
+      {
+        ((ofstream*) out)->close();
+        delete out;
+      }
     }
   }
 
