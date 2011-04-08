@@ -18,6 +18,8 @@ std::string LowerCase(const std::string s);
 
 std::string HexDump(unsigned char* Data, unsigned int Size);
 
+std::string Base32Dump(unsigned char* Data, unsigned int Size);
+
 bool IsHex(char c);
 
 bool IsHex(const std::string s);

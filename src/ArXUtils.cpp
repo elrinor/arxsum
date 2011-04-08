@@ -23,13 +23,33 @@ string LowerCase(const string s)
 
 string HexDump(unsigned char* Data, unsigned int Size)
 {
+  static const char base16[] = "0123456789abcdef";
   string result;
-  char tmp[3];
   for(int i = 0; i < Size; i++)
   {
-    sprintf(tmp, "%02x", Data[i]);
-    result += tmp;
+    result += base16[Data[i]/16];
+    result += base16[Data[i]%16];
   }
+  return result;
+}
+
+string Base32Dump(unsigned char* Data, unsigned int Size)
+{
+  static const char base32[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=";
+  string result;
+  int base32Chars = (Size * 8 + 4) / 5;
+  int shift = 11;
+  int i = 0, ch = 0;
+  do {
+    result += base32[((Data[i] * 256 + Data[i + 1]) >> shift) & 0x1f];
+    shift -= 5;
+    if(shift <= 0)
+    {
+      shift += 8;
+      ++i;
+    }
+  } while (++ch < base32Chars - 1);
+  result += base32[(Data[Size - 1] << (base32Chars * 5 % CHAR_BIT)) & 0x1f];
   return result;
 }
 

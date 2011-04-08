@@ -27,6 +27,9 @@ TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 TODO:
 - ..\* and * duplicates
 
+v1.11
++ TTH hash added
+
 v1.10
 * Fixed oef without eoln issue
 * FILE_SHARE_READ added in CreateFile
@@ -85,19 +88,15 @@ v1.00
 #include <algorithm>
 #include <ctype.h>
 #include "ArXUtils.h"
-#include "openssl/md5/md5.h"
-#include "openssl/md4/md4.h"
-#include "openssl/ed2k/ed2k.h"
-#include "openssl/sha/sha.h"
-#include "openssl/crc/crc.h"
+#include "hash/Hashes.h"
 
 using namespace std;
 
 #undef max
 #undef min
-#define FILEBUFSIZE	1024*1024
+#define FILEBUFSIZE	(1024*1024)
 #define IOBUFSIZE 16384
-#define VERSION "v1.10"
+#define VERSION "v1.11"
 
 enum CheckSumType
 {
@@ -108,6 +107,7 @@ enum CheckSumType
   CS_SHA1,
   CS_SHA256,
   CS_SHA512,
+  CS_TTH,
   CS_COUNT,
   CS_UNKNOWN = -1
 };
@@ -128,7 +128,7 @@ enum OutputType
   O_SMART
 };
 
-const char* CheckSumNames[] = {"MD5", "CRC", "ED2K", "MD4", "SHA1", "SHA256", "SHA512"};
+const char* CheckSumNames[] = {"MD5", "CRC", "ED2K", "MD4", "SHA1", "SHA256", "SHA512", "TTH"};
 
 const char* CheckSumExts[] = {"MD5", "SFV", "ED2K"};
 
@@ -139,7 +139,7 @@ private:
 public:
   const bool& operator[] (const int n) const {return Sums[n];}
   bool& operator[] (const int n) {return Sums[n];}
-  CheckSumOpts(bool DoMD5, bool DoMD4, bool DoED2K, bool DoCRC, bool DoSHA1, bool DoSHA256, bool DoSHA512)
+  CheckSumOpts(bool DoMD5, bool DoMD4, bool DoED2K, bool DoCRC, bool DoSHA1, bool DoSHA256, bool DoSHA512, bool DoTTH)
   {
     Sums[CS_CRC]    = DoCRC;
     Sums[CS_MD4]    = DoMD4;
@@ -148,6 +148,7 @@ public:
     Sums[CS_SHA1]   = DoSHA1;
     Sums[CS_SHA256] = DoSHA256;
     Sums[CS_SHA512] = DoSHA512;
+    Sums[CS_TTH]    = DoTTH;
   }
   CheckSumOpts(bool Default)
   {
@@ -193,6 +194,7 @@ bool CheckMode = false;
 bool UseFileList = false;
 bool ReadFileListFromStdIn = false;
 bool MultiThreaded = false;
+bool TestSpeed = false;
 
 class Entry
 {
@@ -306,10 +308,78 @@ DWORD WINAPI HashThreadFunc(LPVOID lpParam)
     case CS_SHA1:     SHA1_Update((SHA_CTX*)    Param->ctx, Param->ptr, Param->n); break;
     case CS_SHA256: SHA256_Update((SHA256_CTX*) Param->ctx, Param->ptr, Param->n); break;
     case CS_SHA512: SHA512_Update((SHA512_CTX*) Param->ctx, Param->ptr, Param->n); break;
+    case CS_TTH:       TTH_Update((TTH_CTX*)    Param->ctx, Param->ptr, Param->n); break;
     }
     SetEvent(Param->hBeginIO);
   }
   return 0;
+}
+
+void TestHashSpeed() 
+{
+  CRC_CTX crcctx;
+  MD4_CTX md4ctx; 
+  ED2K_CTX ed2kctx;
+  MD5_CTX md5ctx;
+  SHA_CTX sha1ctx;
+  SHA256_CTX sha256ctx;
+  SHA512_CTX sha512ctx;
+  TTH_CTX tthctx;
+  CRC_Init(&crcctx);
+  MD4_Init(&md4ctx);
+  ED2K_Init(&ed2kctx);
+  MD5_Init(&md5ctx);
+  SHA1_Init(&sha1ctx);
+  SHA256_Init(&sha256ctx);
+  SHA512_Init(&sha512ctx);
+  TTH_Init(&tthctx, 1024 * FILEBUFSIZE);
+
+  unsigned char* buf = new unsigned char[FILEBUFSIZE];
+  unsigned int LastTickCount;
+  unsigned int i;
+  cout << "Testing hash speed..." << endl;
+
+  LastTickCount = GetTickCount();
+  for(i = 0; i < 32 || (GetTickCount() - LastTickCount) < 3723; i++)
+    CRC_Update(&crcctx,    buf, FILEBUFSIZE);
+  cout << CheckSumNames[CS_CRC] << ": " << fixed << showpoint << setprecision(3) << (((float)i) * FILEBUFSIZE / (1024 * 1024)) / ((GetTickCount() - LastTickCount) / 1000.0f) << "Mbps       " << endl;
+
+  LastTickCount = GetTickCount();
+  for(i = 0; i < 32 || (GetTickCount() - LastTickCount) < 3723; i++)
+    MD4_Update(&md4ctx,    buf, FILEBUFSIZE);
+  cout << CheckSumNames[CS_MD4] << ": " << fixed << showpoint << setprecision(3) << (((float)i) * FILEBUFSIZE / (1024 * 1024)) / ((GetTickCount() - LastTickCount) / 1000.0f) << "Mbps       " << endl;
+
+  LastTickCount = GetTickCount();
+  for(i = 0; i < 32 || (GetTickCount() - LastTickCount) < 3723; i++)
+    ED2K_Update(&ed2kctx,    buf, FILEBUFSIZE);
+  cout << CheckSumNames[CS_ED2K] << ": " << fixed << showpoint << setprecision(3) << (((float)i) * FILEBUFSIZE / (1024 * 1024)) / ((GetTickCount() - LastTickCount) / 1000.0f) << "Mbps       " << endl;
+
+  LastTickCount = GetTickCount();
+  for(i = 0; i < 32 || (GetTickCount() - LastTickCount) < 3723; i++)
+    MD5_Update(&md5ctx,    buf, FILEBUFSIZE);
+  cout << CheckSumNames[CS_MD5] << ": " << fixed << showpoint << setprecision(3) << (((float)i) * FILEBUFSIZE / (1024 * 1024)) / ((GetTickCount() - LastTickCount) / 1000.0f) << "Mbps       " << endl;
+
+  LastTickCount = GetTickCount();
+  for(i = 0; i < 32 || (GetTickCount() - LastTickCount) < 3723; i++)
+    SHA1_Update(&sha1ctx,    buf, FILEBUFSIZE);
+  cout << CheckSumNames[CS_SHA1] << ": " << fixed << showpoint << setprecision(3) << (((float)i) * FILEBUFSIZE / (1024 * 1024)) / ((GetTickCount() - LastTickCount) / 1000.0f) << "Mbps       " << endl;
+
+  LastTickCount = GetTickCount();
+  for(i = 0; i < 32 || (GetTickCount() - LastTickCount) < 3723; i++)
+    SHA256_Update(&sha256ctx,    buf, FILEBUFSIZE);
+  cout << CheckSumNames[CS_SHA256] << ": " << fixed << showpoint << setprecision(3) << (((float)i) * FILEBUFSIZE / (1024 * 1024)) / ((GetTickCount() - LastTickCount) / 1000.0f) << "Mbps       " << endl;
+
+  LastTickCount = GetTickCount();
+  for(i = 0; i < 32 || (GetTickCount() - LastTickCount) < 3723; i++)
+    SHA512_Update(&sha512ctx,    buf, FILEBUFSIZE);
+  cout << CheckSumNames[CS_SHA512] << ": " << fixed << showpoint << setprecision(3) << (((float)i) * FILEBUFSIZE / (1024 * 1024)) / ((GetTickCount() - LastTickCount) / 1000.0f) << "Mbps       " << endl;
+
+  LastTickCount = GetTickCount();
+  for(i = 0; i < 32 || (GetTickCount() - LastTickCount) < 3723; i++)
+    TTH_Update(&tthctx,    buf, FILEBUFSIZE);
+  cout << CheckSumNames[CS_TTH] << ": " << fixed << showpoint << setprecision(3) << (((float)i) * FILEBUFSIZE / (1024 * 1024)) / ((GetTickCount() - LastTickCount) / 1000.0f) << "Mbps       " << endl;
+
+  delete[] buf;
 }
 
 void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& Do)
@@ -354,6 +424,7 @@ void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& D
   SHA_CTX sha1ctx;
   SHA256_CTX sha256ctx;
   SHA512_CTX sha512ctx;
+  TTH_CTX tthctx;
   unsigned char crcdgst[CRC_DIGEST_LENGTH]; 
   unsigned char md4dgst[MD4_DIGEST_LENGTH]; 
   unsigned char ed2kdgst[ED2K_DIGEST_LENGTH]; 
@@ -361,6 +432,7 @@ void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& D
   unsigned char sha1dgst[SHA_DIGEST_LENGTH]; 
   unsigned char sha256dgst[SHA256_DIGEST_LENGTH]; 
   unsigned char sha512dgst[SHA512_DIGEST_LENGTH]; 
+  unsigned char tthdgst[TTH_DIGEST_LENGTH]; 
 
   static unsigned char buf0[FILEBUFSIZE];
   static unsigned char buf1[FILEBUFSIZE];
@@ -385,6 +457,7 @@ void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& D
   SHA1_Init(&sha1ctx);
   SHA256_Init(&sha256ctx);
   SHA512_Init(&sha512ctx);
+  TTH_Init(&tthctx, File.Size);
 
   ThreadParam Params[CS_COUNT];
   HANDLE hThreads[CS_COUNT];
@@ -397,6 +470,7 @@ void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& D
     Params[CS_SHA1].ctx = &sha1ctx;
     Params[CS_SHA256].ctx = &sha256ctx;
     Params[CS_SHA512].ctx = &sha512ctx;
+    Params[CS_TTH].ctx = &tthctx;
     for(int i = 0; i < CS_COUNT; i++) if(Do[i])
     {
       Params[i].SumType = (CheckSumType) i;
@@ -444,6 +518,7 @@ void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& D
         if(Do[CS_SHA1])     SHA1_Update(&sha1ctx,   ptr, read);
         if(Do[CS_SHA256]) SHA256_Update(&sha256ctx, ptr, read);
         if(Do[CS_SHA512]) SHA512_Update(&sha512ctx, ptr, read);
+        if(Do[CS_TTH])       TTH_Update(&tthctx,    ptr, read);
       }
     }
     if(!bResult && LastError != ERROR_IO_PENDING)
@@ -478,6 +553,7 @@ void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& D
   SHA1_Final(sha1dgst, &sha1ctx);
   SHA256_Final(sha256dgst, &sha256ctx);
   SHA512_Final(sha512dgst, &sha512ctx);
+  TTH_Final(tthdgst, &tthctx);
 
   File.Digest[CS_CRC]    = HexDump(crcdgst, CRC_DIGEST_LENGTH);
   File.Digest[CS_MD4]    = HexDump(md4dgst, MD4_DIGEST_LENGTH);
@@ -486,6 +562,7 @@ void HashFile(Entry& File, bool Quiet, bool MultiThreaded, const CheckSumOpts& D
   File.Digest[CS_SHA1]   = HexDump(sha1dgst, SHA_DIGEST_LENGTH);
   File.Digest[CS_SHA256] = HexDump(sha256dgst, SHA256_DIGEST_LENGTH);
   File.Digest[CS_SHA512] = HexDump(sha512dgst, SHA512_DIGEST_LENGTH);
+  File.Digest[CS_TTH]    = HexDump(tthdgst, TTH_DIGEST_LENGTH);
 
   if(MultiThreaded)
   {
@@ -690,6 +767,7 @@ void Synopsis()
   cout << "-sha1           Calculate sha1" << endl;
   cout << "-sha256         Calculate sha256" << endl;
   cout << "-sha512         Calculate sha512" << endl;
+  cout << "-tth            Calculate tth" << endl;
   cout << "-all            Calculate all possible checksums" << endl;
   cout << endl;
   cout << "Output options:" << endl;
@@ -711,6 +789,7 @@ void Synopsis()
   cout << "-c              Check mode - treat all input files as checksum files" << endl;
   cout << "-q              Do not output progress" << endl;
   cout << "-h, --help      Display this help" << endl;
+  cout << "-t, --test      Do not hash anything, just test hash speed" << endl;
   return;
 }
 
@@ -726,6 +805,8 @@ int main(int argc, char **argv)
         Synopsis();
         exit(0);
       }
+      else if(arg == "-t" || arg == "--test")
+        TestSpeed = true;
       else if(arg == "-r")
         Recursive = true;
       else if(arg == "-m")
@@ -750,6 +831,8 @@ int main(int argc, char **argv)
         Do[CS_SHA256] = true;
       else if(arg == "-sha512")
         Do[CS_SHA512] = true;
+      else if(arg == "-tth")
+        Do[CS_TTH] = true;
       else if(arg.substr(0, 5) == "-omd5")
       {
         if(arg.size() > 6 && arg[5] == '=')
@@ -806,6 +889,11 @@ int main(int argc, char **argv)
     }
     else
       Mask.push_back(argv[i]);
+  }
+
+  if(TestSpeed) {
+    TestHashSpeed();
+    exit(0);
   }
 
   if(OutputFormats[OF_MD5] == O_NONE && OutputFormats[OF_SFV] == O_NONE && OutputFormats[OF_ED2K] == O_NONE)
