@@ -61,8 +61,7 @@
 
 //#include <openssl/opensslconf.h>
 #include "sha.h"
-
-#define SHA1_ASM
+#include "../../config.h"
 
 #ifndef SHA_LONG_LOG2
 #define SHA_LONG_LOG2	2	/* default to 32 bits */

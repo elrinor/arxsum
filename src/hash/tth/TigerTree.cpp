@@ -22,14 +22,16 @@
 //#include "StdAfx.h"
 //#include "Shareaza.h"
 //#include <afx.h>
-#include <crtdbg.h>
+//#include <crtdbg.h>
+#include <assert.h>
 #include "Machine.h"
 #include "TigerTree.h"
+#include "../../config.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
 static char THIS_FILE[]=__FILE__;
-#define new DEBUG_NEW
+//#define new DEBUG_NEW
 #endif
 
 const unsigned BLOCK_SIZE = 1024u;
@@ -321,7 +323,7 @@ void CTigerTree::Assume(CTigerTree* pSource)
 
 void CTigerTree::BeginFile(DWORD nHeight, uint64 nLength)
 {
-	_ASSERT( ! IsAvailable() );
+	assert( ! IsAvailable() );
 
 	SetupAndAllocate( nHeight, nLength );
 
@@ -335,7 +337,7 @@ void CTigerTree::BeginFile(DWORD nHeight, uint64 nLength)
 
 void CTigerTree::AddToFile(LPCVOID pInput, DWORD nLength)
 {
-	_ASSERT( m_pNode != NULL );
+	assert( m_pNode != NULL );
 
 	LPBYTE pBlock = (LPBYTE)pInput;
 
@@ -416,7 +418,7 @@ BOOL CTigerTree::FinishFile()
 
 void CTigerTree::BeginBlockTest()
 {
-	_ASSERT( m_pNode != NULL );
+	assert( m_pNode != NULL );
 
 	if ( m_pStackBase == NULL ) m_pStackBase = new CTigerNode[ STACK_SIZE ];
 	m_pStackTop	= m_pStackBase;
@@ -428,7 +430,7 @@ void CTigerTree::BeginBlockTest()
 
 void CTigerTree::AddToTest(LPCVOID pInput, DWORD nLength)
 {
-	_ASSERT( m_pNode != NULL );
+	assert( m_pNode != NULL );
 
 	LPBYTE pBlock = (LPBYTE)pInput;
 
@@ -439,7 +441,7 @@ void CTigerTree::AddToTest(LPCVOID pInput, DWORD nLength)
 		Tiger( pBlock, (uint64)nBlock, m_pStackTop->value );
 		m_pStackTop ++;
 
-		_ASSERT( m_nBlockPos < m_nBlockCount );
+		assert( m_nBlockPos < m_nBlockCount );
 
 		DWORD nCollapse = ++m_nBlockPos;
 
@@ -459,7 +461,7 @@ void CTigerTree::AddToTest(LPCVOID pInput, DWORD nLength)
 
 BOOL CTigerTree::FinishBlockTest(DWORD nBlock)
 {
-	_ASSERT( nBlock < m_nBaseUsed );
+	assert( nBlock < m_nBaseUsed );
 	if ( nBlock >= m_nBaseUsed ) return FALSE;
 
 	while ( m_pStackTop - 1 > m_pStackBase ) Collapse();
@@ -622,6 +624,7 @@ BOOL CTigerTree::CheckIntegrity()
 
 void CTigerTree::Dump()
 {
+	/*
 #ifdef _DEBUG
 	CString strOutput, strLine;
 
@@ -655,6 +658,7 @@ void CTigerTree::Dump()
 
 	theApp.LogMessage( strOutput );
 #endif
+	*/
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -708,7 +712,7 @@ void CTigerTree::Tiger(LPCVOID pInput, uint64 nInput, uint64* pOutput, uint64* p
 	}
 	else
 	{
-		_ASSERT( FALSE );
+		assert( FALSE );
 	}
 
 	pTemp[j++] = 0x01;
@@ -734,7 +738,7 @@ void CTigerTree::Tiger(LPCVOID pInput, uint64 nInput, uint64* pOutput, uint64* p
 
 void CTigerTree::Collapse()
 {
-	_ASSERT( m_pStackTop - m_pStackBase >= 2 );
+	assert( m_pStackTop - m_pStackBase >= 2 );
 
 	Tiger( NULL, TIGER_SIZE * 2, m_pStackTop->value, m_pStackTop[-2].value, m_pStackTop[-1].value );
 

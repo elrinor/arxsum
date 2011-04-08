@@ -23,9 +23,39 @@
 #define TIGERTREE_H_INCLUDED
 
 #pragma once
-#include <Windows.h>
+//#include <Windows.h>
+#include <memory.h>
+#include <stdlib.h>
 
-#define SHAREAZA_USE_ASM
+typedef unsigned long DWORD;
+typedef int BOOL;
+typedef unsigned char BYTE;
+typedef const void *LPCVOID;
+typedef BYTE *LPBYTE;
+
+#ifndef max
+#  define max(a, b) ((a > b)?(a):(b))
+#endif
+
+#ifndef min
+#  define min(a, b) ((a < b)?(a):(b))
+#endif
+
+#ifndef FALSE
+#  define FALSE 0
+#endif
+
+#ifndef TRUE
+#  define TRUE 1
+#endif
+
+#ifndef _ASSERT
+#  define _ASSERT assert
+#endif
+
+#ifndef CopyMemory
+#  define CopyMemory(Destination,Source,Length) memcpy((Destination),(Source),(Length))
+#endif
 
 typedef unsigned __int64 uint64;
 typedef unsigned int uint32;
@@ -100,7 +130,7 @@ class CTigerNode
 {
 // Construction
 public:
-	CTigerNode() : bValid( false ) { ZeroMemory( value, sizeof( value ) ) ; }
+	CTigerNode() : bValid( false ) { memset(value, 0, sizeof(value)); }
 
 // Attributes
 public:

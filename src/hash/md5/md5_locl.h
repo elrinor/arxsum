@@ -59,13 +59,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "md5.h"
+#include "../../config.h"
 
 #ifndef MD5_LONG_LOG2
 #define MD5_LONG_LOG2 2 /* default to 32 bits */
 #endif
-
-#define MD5_ASM
-
 
 #ifdef MD5_ASM
 # if defined(__i386) || defined(__i386__) || defined(_M_IX86) || defined(__INTEL__) || defined(__x86_64) || defined(__x86_64__)
