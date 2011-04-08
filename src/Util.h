@@ -7,12 +7,12 @@
 #if 0
 class wruntime_error: std::exception {
 private:
-	string message;
+  string message;
 public:
-	explicit wruntime_error(const string& message): message(message) {}
-	virtual ~wruntime_error()	{}
-	virtual const char* what() const;
-	virtual const wchar_t* wwhat() const;
+  explicit wruntime_error(const string& message): message(message) {}
+  virtual ~wruntime_error()  {}
+  virtual const char* what() const;
+  virtual const wchar_t* wwhat() const;
 };
 #endif
 

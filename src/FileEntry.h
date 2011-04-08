@@ -9,23 +9,26 @@
 
 class FileEntry {
 private:
-	class FileEntryImpl;
-	boost::shared_ptr<FileEntryImpl> impl;
+  class FileEntryImpl;
+  boost::shared_ptr<FileEntryImpl> impl;
 public:
-	FileEntry() {};
-	FileEntry(boost::filesystem::path name);
-	FileEntry(std::string name);
-	FileEntry(char* name);
-	bool isFailed() const;
-	void setFailed(bool failed);
-	boost::filesystem::path getPath() const;
-	void setSize(uint64 size);
-	uint64 getSize() const;
-	void setDateTime(time_t dateTime);
-	time_t getDateTime() const;
-	void setDigest(uint32 id, std::string digestString);
-	std::string getDigest(uint32 id) const;
-	bool operator< (const FileEntry& that) const;
+  FileEntry() {};
+  explicit FileEntry(boost::filesystem::wpath name);
+  explicit FileEntry(std::wstring name);
+  explicit FileEntry(wchar_t* name);
+
+  bool isFailed() const;
+  boost::filesystem::wpath getPath() const;
+  uint64 getSize() const;
+  time_t getDateTime() const;
+  Digest getDigest(uint32 id) const;
+
+  void setFailed(bool failed);
+  void setSize(uint64 size);
+  void setDateTime(time_t dateTime);
+  void setDigest(uint32 id, Digest digest);
+
+  bool operator< (const FileEntry& that) const;
 };
 
 #endif

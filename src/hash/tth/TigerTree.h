@@ -69,73 +69,73 @@ class CTigerTree
 {
 // Construction
 public:
-	CTigerTree();
-	virtual ~CTigerTree();
+  CTigerTree();
+  virtual ~CTigerTree();
 
 // Operations
 public:
-	void	SetupAndAllocate(DWORD nHeight, uint64 nLength);
-	void	SetupParameters(uint64 nLength);
-	void	Clear();
-	//void	Serialize(CArchive& ar);
-	DWORD	GetSerialSize() const;
+  void  SetupAndAllocate(DWORD nHeight, uint64 nLength);
+  void  SetupParameters(uint64 nLength);
+  void  Clear();
+  //void  Serialize(CArchive& ar);
+  DWORD  GetSerialSize() const;
 public:
-	BOOL	GetRoot(unsigned char* md) const;
-	void	Assume(CTigerTree* pSource);
+  BOOL  GetRoot(unsigned char* md) const;
+  void  Assume(CTigerTree* pSource);
 public:
-	void	BeginFile(DWORD nHeight, uint64 nLength);
-	void	AddToFile(const void* pInput, DWORD nLength);
-	BOOL	FinishFile();
+  void  BeginFile(DWORD nHeight, uint64 nLength);
+  void  AddToFile(const void* pInput, DWORD nLength);
+  BOOL  FinishFile();
 public:
-	void	BeginBlockTest();
-	void	AddToTest(const void* pInput, DWORD nLength);
-	BOOL	FinishBlockTest(DWORD nBlock);
+  void  BeginBlockTest();
+  void  AddToTest(const void* pInput, DWORD nLength);
+  BOOL  FinishBlockTest(DWORD nBlock);
 public:
-	BOOL	ToBytes(BYTE** pOutput, DWORD* pnOutput, DWORD nHeight = 0);
-	BOOL	FromBytes(BYTE* pOutput, DWORD nOutput, DWORD nHeight, uint64 nLength);
-	BOOL	CheckIntegrity();
-	void	Dump();
+  BOOL  ToBytes(BYTE** pOutput, DWORD* pnOutput, DWORD nHeight = 0);
+  BOOL  FromBytes(BYTE* pOutput, DWORD nOutput, DWORD nHeight, uint64 nLength);
+  BOOL  CheckIntegrity();
+  void  Dump();
 
 // Inlines
 public:
-	BOOL	IsAvailable() const { return m_pNode != NULL; }
-	DWORD	GetHeight() const { return m_nHeight; }
-	DWORD	GetBlockLength() const { return 1024 * m_nBlockCount; }
-	DWORD	GetBlockCount() const { return m_nBaseUsed; }
+  BOOL  IsAvailable() const { return m_pNode != NULL; }
+  DWORD  GetHeight() const { return m_nHeight; }
+  DWORD  GetBlockLength() const { return 1024 * m_nBlockCount; }
+  DWORD  GetBlockCount() const { return m_nBaseUsed; }
 
 // Attributes
 private:
-	DWORD		m_nHeight;
-	CTigerNode*	m_pNode;
-	DWORD		m_nNodeCount;
+  DWORD    m_nHeight;
+  CTigerNode*  m_pNode;
+  DWORD    m_nNodeCount;
 
 // Processing Data
 private:
-	DWORD		m_nNodeBase;
-	DWORD		m_nNodePos;
-	DWORD		m_nBaseUsed;
-	DWORD		m_nBlockCount;
-	DWORD		m_nBlockPos;
-	CTigerNode*	m_pStackBase;
-	CTigerNode*	m_pStackTop;
+  DWORD    m_nNodeBase;
+  DWORD    m_nNodePos;
+  DWORD    m_nBaseUsed;
+  DWORD    m_nBlockCount;
+  DWORD    m_nBlockPos;
+  CTigerNode*  m_pStackBase;
+  CTigerNode*  m_pStackTop;
 
 // Implementation
 private:
-	void	Collapse();
-	void	BlocksToNode();
-	void	Tiger(LPCVOID pInput, uint64 nInput, uint64* pOutput, uint64* pInput1 = NULL, uint64* pInput2 = NULL);
+  void  Collapse();
+  void  BlocksToNode();
+  void  Tiger(LPCVOID pInput, uint64 nInput, uint64* pOutput, uint64* pInput1 = NULL, uint64* pInput2 = NULL);
 };
 
 class CTigerNode
 {
 // Construction
 public:
-	CTigerNode() : bValid( false ) { memset(value, 0, sizeof(value)); }
+  CTigerNode() : bValid( false ) { memset(value, 0, sizeof(value)); }
 
 // Attributes
 public:
-	uint64	value[3];
-	bool bValid;
+  uint64  value[3];
+  bool bValid;
 };
 
 #endif // #ifndef TIGERTREE_H_INCLUDED

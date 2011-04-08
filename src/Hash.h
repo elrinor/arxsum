@@ -18,23 +18,39 @@ enum {
   H_UNKNOWN = -1
 };
 
-namespace __hashes {
-	class HashImpl;
+class Digest {
+private:
+  class DigestImpl;
+  boost::shared_ptr<DigestImpl> impl;
+public:
+  Digest();
+  Digest(const unsigned char* data, unsigned int len);
+  std::size_t size() const;
+  const unsigned char* get() const;
+  bool operator== (const Digest& that) const;
+  bool operator!= (const Digest& that) const;
+
+  const std::string toHexString() const; 
+  static Digest fromHexString(const std::string& hex);
+};
+
+namespace detail {
+  class HashImpl;
 };
 
 class Hash {
 private:
-	boost::shared_ptr<__hashes::HashImpl> impl;
-	uint32 hashId;
+  boost::shared_ptr<detail::HashImpl> impl;
+  uint32 hashId;
 public:
-	Hash(uint32 hashId, uint64 totalLen);
-	void update(const void* data, size_t len);
-	std::string finalize();
-	std::string getName();
-	uint32 getId();
-	static std::string getName(uint32 hashId);
+  Hash(uint32 hashId, uint64 totalLen);
+  void update(const void* data, size_t len);
+  Digest finalize();
+  std::string getName();
+  uint32 getId();
+  static std::string getName(uint32 hashId);
 };
 
-std::string calculateHash(const void* data, size_t len, uint32 hashId);
+Digest calculateHash(const void* data, size_t len, uint32 hashId);
 
 #endif

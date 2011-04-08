@@ -17,4 +17,8 @@
 #  define ARX_LINUX
 #endif
 
+#if defined(_DEBUG) && !defined(DEBUG)
+#  define DEBUG
+#endif
+
 #endif
