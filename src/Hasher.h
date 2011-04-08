@@ -10,37 +10,53 @@
 #include <boost/timer.hpp>
 #include <boost/filesystem.hpp>
 
+// -------------------------------------------------------------------------- //
+// HasherCallBack
+// -------------------------------------------------------------------------- //
 namespace detail {
-  class HasherImpl;
+  class HasherCallBackImpl {
+  public:
+    virtual void operator() (uint64 justProcessed) {return;};
+    virtual void clear() {return;};
+  };
 }
 
 class HasherCallBack {
-public:
-  virtual void operator() (uint64 justProcessed) = 0;
-};
-
-class StreamOutHasherCallBack: public HasherCallBack {
 private:
-  uint64 sumSize;
-  uint64 processed;
-  uint64 lastProcessed;
-  boost::timer t;
-  double lastOutputTime;
-  arx::Printer* printer;
+  boost::shared_ptr<::detail::HasherCallBackImpl> impl;
+
+protected:
+  HasherCallBack(::detail::HasherCallBackImpl* impl);
+
 public:
-  StreamOutHasherCallBack() {}
-  StreamOutHasherCallBack(uint64 sumSize, arx::Printer* printer): sumSize(sumSize), processed(0), lastProcessed(0), lastOutputTime(0.0), printer(printer) {}
+  HasherCallBack();
+
   void operator() (uint64 justProcessed);
   void clear();
 };
 
-class Hasher: private boost::noncopyable {
+// -------------------------------------------------------------------------- //
+// PrinterHasherCallBack
+// -------------------------------------------------------------------------- //
+class PrinterHasherCallBack: public HasherCallBack {
+public:
+  PrinterHasherCallBack(uint64 sumSize, arx::Printer* printer);
+};
+
+// -------------------------------------------------------------------------- //
+// Hasher
+// -------------------------------------------------------------------------- //
+namespace detail {
+  class HasherImpl;
+}
+
+class Hasher {
 private:
   boost::shared_ptr<::detail::HasherImpl> impl;
 public:
-  Hasher(HashTask task, bool isMultiThreaded, boost::shared_ptr<HasherCallBack> callBack = boost::shared_ptr<HasherCallBack>());
+  Hasher(HashTask task, bool isMultiThreaded, HasherCallBack callBack = HasherCallBack());
   void hash(FileEntry entry);
-  static Digest hash(uint32 hashId, boost::filesystem::wpath filePath, boost::shared_ptr<HasherCallBack> callBack);
+  static Digest hash(uint32 hashId, boost::filesystem::wpath filePath, HasherCallBack callBack);
 };
 
 #endif

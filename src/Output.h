@@ -16,7 +16,7 @@ enum {
   O_SHA1,
   O_BSD,
   O_COUNT,
-  O_UNKNOWN = -1
+  O_UNKNOWN = 0xFFFFFFFF
 };
 
 extern const uint32 outTaskRequirement[];

@@ -25,14 +25,17 @@ ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". THE AUTHOR HAS NO OBLIGATION
 TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
 TODO:
-- linix32 port
+- linux32 port
 - linux64 port
-- flush()
-- check system refactoring + .bsd checking
-- key for md4
 - printf output
 - 2ch hash checking
 - faster crc --failed
+
+v1.3.4
+* fixed an issue with flush() in arxlib
++ checking system underwent a major refactoring
++ callback system refactored
++ .bsd output format checking
 
 v1.3.3
 * fixed stdin hashing while isatty
@@ -45,7 +48,7 @@ v1.3.2
 
 v1.3.1
 + Output in sha1 and bsd format
-+ Sha1 output format checking
++ sha1 output format checking
 + -u option (output hash in uppercase)
 
 v1.3.0
@@ -147,7 +150,7 @@ ArrayList<FileEntry> addToFileList(wpath dir, wregex fileNameMask, bool isRecurs
       } else if(is_regular(itr->status())) {
         if(regex_match(itr->leaf(), fileNameMask)) {
           wstring filePath = (dir / itr->leaf()).external_file_string();
-          if(starts_with(filePath, "."))
+          if(starts_with(filePath, ".") && !starts_with(filePath, ".."))
             filePath = filePath.substr(2);
           fileList.add(FileEntry(filePath));
         }
@@ -246,14 +249,13 @@ int MAIN() {
   }
 
   if(options.isInCheckMode()) {
-    shared_ptr<CheckResultReporter> reporter(new PrinterCheckResultReporter(&wCout));
-    Checker checker(reporter);
+    Checker checker = Checker(PrinterCheckResultReporter(&wCout));
     FOREACH(FileEntry file, fileList)
       checker.check(file.getPath());
   } else {
-    shared_ptr<HasherCallBack> callback;
+    HasherCallBack callback;
     if(!options.isQuiet())
-      callback.reset(new StreamOutHasherCallBack(sumSize, &wCout));
+      callback = PrinterHasherCallBack(sumSize, &wCout);
     Hasher hasher(options.getHashTask(), options.isMultiThreaded(), callback);
     FOREACH(FileEntry file, fileList) 
       if(!file.isFailed())

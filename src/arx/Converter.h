@@ -2,7 +2,7 @@
 #define __ARX_CONVERTER_H__
 
 #include "config.h"
-#include "shared_ptr.h"
+#include "smart_ptr.h"
 #include <string>
 
 namespace arx {

@@ -17,6 +17,7 @@
 #endif
 
 #include "Converter.h"
+#include "Exception.h"
 #include <algorithm>
 #include <limits>
 
@@ -147,23 +148,21 @@ namespace arx {
     template<class charT, class readerImplT>
     unsigned int bufferedRead(readerImplT* reader, charT* dst, unsigned int len) {
       unsigned int initialLen = len;
-      //while(len > 0) {
-        if(reader->bufLeft() <= 0) {
-          int status = reader->fillBuf();
-          if(status == EOF) {
-            if(initialLen == len)
-              return EOF;
-            return initialLen - len;
-          }
+      if(reader->bufLeft() <= 0) {
+        int status = reader->fillBuf();
+        if(status == EOF) {
+          if(initialLen == len)
+            return EOF;
+          return initialLen - len;
         }
-        if(reader->bufLeft() > 0) {
-          unsigned int toMove = min(reader->bufLeft(), len);
-          memcpy(dst, reader->getBuf() + reader->getBufPos(), toMove * sizeof(wchar_t));
-          reader->setBufPos(reader->getBufPos() + toMove);
-          len -= toMove;
-          dst += toMove;
-        }
-      //}
+      }
+      if(reader->bufLeft() > 0) {
+        unsigned int toMove = min(reader->bufLeft(), len);
+        memcpy(dst, reader->getBuf() + reader->getBufPos(), toMove * sizeof(wchar_t));
+        reader->setBufPos(reader->getBufPos() + toMove);
+        len -= toMove;
+        dst += toMove;
+      }
       return initialLen - len;
     }
 
@@ -358,6 +357,11 @@ namespace arx {
       if(handle == INVALID_HANDLE_VALUE)
         throw new runtime_error("Could not open file \"" + fileName + "\".");
     }
+    
+    void throwOnInvalidHandle(wstring fileName, HANDLE handle) {
+      if(handle == INVALID_HANDLE_VALUE)
+        throw new wruntime_error(L"Could not open file \"" + fileName + L"\".");
+    }
 #endif
 
 // -------------------------------------------------------------------------- //
@@ -376,7 +380,7 @@ namespace arx {
     public:
       FileInputStreamImpl(wstring fileName, int openMode) {
         this->handle = CreateFileW(fileName.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, prepareFlags(openMode), NULL);
-        throwOnInvalidHandle("", this->handle); // TODO
+        throwOnInvalidHandle(fileName, this->handle);
       }
 
       FileInputStreamImpl(string fileName, int openMode) {
@@ -519,9 +523,9 @@ namespace arx {
 
       void flush() {
         // TODO: this works really slow with std::endl => disabled
-        /*BOOL status = FlushFileBuffers(this->handle);
+        BOOL status = FlushFileBuffers(this->handle);
         if(status == 0)
-          throw runtime_error("Error while flushing file: FlushFileBuffers failed");*/
+          throw runtime_error("Error while flushing file: FlushFileBuffers failed");
       }
 
       void close() {
@@ -1259,7 +1263,7 @@ namespace arx {
 
     protected:
       unsigned int flushBuffer() {
-        int num = pptr() - pbase();
+        int num = (int) (pptr() - pbase());
         this->writer.write(this->buffer, num);
         pbump(-num);
         return num;
@@ -1351,7 +1355,7 @@ namespace arx {
   void initWStreams() {
     static bool initialized = false;
     if(!initialized) {
-      localWCout.reset(new Printer(OutputStreamWriter(ConsoleOutputStream()), _isatty(_fileno(stdout)) ? 0 : 4096));
+      localWCout.reset(new Printer(OutputStreamWriter(ConsoleOutputStream()), /*_isatty(_fileno(stdout)) ? 0 :*/ 4096));
       localWCin.reset(new Scanner(InputStreamReader(ConsoleInputStream())));
       localWCin->tie(localWCout.get());
       initialized = true;
@@ -1373,7 +1377,7 @@ namespace arx {
 
   void changeCinCoutEncoding(const char* wCinEncoding, const char* wCoutEncoding) {
     detail::StreamManager::setBuffer(&wCin, new detail::ReaderBuffer(InputStreamReader(ConsoleInputStream(), wCinEncoding)));
-    detail::StreamManager::setBuffer(&wCout, new detail::WriterBuffer(OutputStreamWriter(ConsoleOutputStream(), wCoutEncoding), _isatty(_fileno(stdout)) ? 0 : 4096));
+    detail::StreamManager::setBuffer(&wCout, new detail::WriterBuffer(OutputStreamWriter(ConsoleOutputStream(), wCoutEncoding), /*_isatty(_fileno(stdout)) ? 0 :*/ 4096));
     localWCin->tie(localWCout.get());
   }
 

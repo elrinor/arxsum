@@ -17,7 +17,7 @@ namespace arx {
     return *this; 
   }
 
-  wruntime_error::~wruntime_error() {
+  wruntime_error::~wruntime_error() throw() {
     return;
   }
 

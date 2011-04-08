@@ -130,3 +130,40 @@ void OutputTask::perform(HashTask task, ArrayList<FileEntry> data) {
     }
 }
 
+// -------------------------------------------------------------------------- //
+// CheckTask
+// -------------------------------------------------------------------------- //
+class CheckTask::CheckTaskImpl {
+public:
+  HashTask hashTask;
+  FileEntry rightEntry;
+  bool sizeNeedsChecking;
+
+  CheckTaskImpl(std::wstring fileName): rightEntry(fileName) {
+    return;
+  }
+};
+
+CheckTask::CheckTask() {
+  return; // we don't initialize impl here to avoid accidental misuse of this constructor
+}
+
+CheckTask::CheckTask(std::wstring fileName): impl(new CheckTaskImpl(fileName)) {
+  this->impl->sizeNeedsChecking = false;
+}
+
+HashTask CheckTask::getHashTask() {
+  return this->impl->hashTask;
+}
+
+FileEntry CheckTask::getRightEntry() {
+  return this->impl->rightEntry;
+}
+
+bool CheckTask::isSizeNeedsChecking() {
+  return this->impl->sizeNeedsChecking;
+}
+
+void CheckTask::setSizeNeedsChecking(bool value) {
+  this->impl->sizeNeedsChecking = value;
+}

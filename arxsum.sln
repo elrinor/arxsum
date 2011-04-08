@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "test.vcproj", "{4285F5F3-6036-44EE-B756-6182DA8FDD18}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "arxsum", "arxsum.vcproj", "{67FE9604-0F2B-4CEC-A7EE-E62F9759C9AB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		debug|Win32 = debug|Win32
+		release|Win32 = release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4285F5F3-6036-44EE-B756-6182DA8FDD18}.debug|Win32.ActiveCfg = Debug|Win32
+		{4285F5F3-6036-44EE-B756-6182DA8FDD18}.debug|Win32.Build.0 = Debug|Win32
+		{4285F5F3-6036-44EE-B756-6182DA8FDD18}.release|Win32.ActiveCfg = Release|Win32
+		{4285F5F3-6036-44EE-B756-6182DA8FDD18}.release|Win32.Build.0 = Release|Win32
+		{67FE9604-0F2B-4CEC-A7EE-E62F9759C9AB}.debug|Win32.ActiveCfg = debug|Win32
+		{67FE9604-0F2B-4CEC-A7EE-E62F9759C9AB}.debug|Win32.Build.0 = debug|Win32
+		{67FE9604-0F2B-4CEC-A7EE-E62F9759C9AB}.release|Win32.ActiveCfg = release|Win32
+		{67FE9604-0F2B-4CEC-A7EE-E62F9759C9AB}.release|Win32.Build.0 = release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

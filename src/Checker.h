@@ -22,6 +22,10 @@ enum CheckErrorType {
 };
 
 class CheckError {
+private:
+  class CheckErrorImpl;
+  boost::shared_ptr<CheckErrorImpl> impl;
+
 public:
   CheckErrorType getType();
 
@@ -38,52 +42,42 @@ public:
   CheckError(CheckErrorType type, uint32 lineNumber);
   CheckError(CheckErrorType type, uint64 rightSize, uint64 wrongSize);
   CheckError(CheckErrorType type, int hashId, Digest rightHash, Digest wrongHash);
-
-private:
-  class CheckErrorImpl;
-  boost::shared_ptr<CheckErrorImpl> impl;
 };
 
 
 // -------------------------------------------------------------------------- //
 // CheckResultReporter
 // -------------------------------------------------------------------------- //
-class CheckResultReporter {
-public:
-  virtual void error(CheckError error);
-  virtual void error(std::wstring errorString);
-  virtual void begin(const boost::filesystem::wpath& checkSumFilePath);
-  virtual void beginFile(const boost::filesystem::wpath& filePath, const std::wstring& fileString);
-  virtual void update(uint64 justProcessed);
-  virtual void endFile(arx::ArrayList<CheckError> errors);
-  virtual void end();
-};
+namespace detail {
+  class CheckResultReporterImpl;
+}
 
+class CheckResultReporter {
+private:
+  boost::shared_ptr<::detail::CheckResultReporterImpl> impl;
+
+protected:
+  CheckResultReporter(::detail::CheckResultReporterImpl* impl);
+
+public:
+  CheckResultReporter();
+
+  void error(CheckError error);
+  void error(std::wstring errorString);
+  void begin(const boost::filesystem::wpath& checkSumFilePath);
+  void beginFile(const boost::filesystem::wpath& filePath, const std::wstring& fileString);
+  void update(uint64 justProcessed);
+  void endFile(arx::ArrayList<CheckError> errors);
+  void end();
+};
 
 // -------------------------------------------------------------------------- //
 // PrinterCheckResultReporter
 // -------------------------------------------------------------------------- //
 class PrinterCheckResultReporter: public CheckResultReporter {
-private:
-  arx::Printer* printer;
-  std::wstring checkSumFileName;
-  std::wstring fileName;
-  uint64 fileSize;
-  uint32 okCount, errorCount;
-  StreamOutHasherCallBack progressCallBack;
-
 public:
-  virtual void error(CheckError error);
-  virtual void error(std::wstring errorString);
-  virtual void begin(const boost::filesystem::wpath& checkSumFilePath);
-  virtual void beginFile(const boost::filesystem::wpath& filePath, const std::wstring& fileString);
-  virtual void update(uint64 justProcessed);
-  virtual void endFile(arx::ArrayList<CheckError> errors);
-  virtual void end();
-
   PrinterCheckResultReporter(arx::Printer* printer);
 };
-
 
 // -------------------------------------------------------------------------- //
 // Checker
@@ -93,7 +87,7 @@ private:
   class CheckerImpl;
   boost::shared_ptr<CheckerImpl> impl;
 public:
-  Checker(boost::shared_ptr<CheckResultReporter> reporter = boost::shared_ptr<CheckResultReporter>());
+  Checker(CheckResultReporter reporter = CheckResultReporter());
   void check(boost::filesystem::wpath filePath);
 };
 

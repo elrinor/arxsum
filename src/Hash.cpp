@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdlib>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 #include "hash/md4/md4.h"
 #include "hash/md5/md5.h"
 #include "hash/sha/sha.h"
@@ -10,6 +11,7 @@
 
 using namespace std;
 using namespace boost;
+using namespace boost::algorithm;
 
 // ------------------------------------------------------------------------- //
 // Supplementary functions
@@ -521,6 +523,31 @@ std::string Hash::getName(uint32 hashId) {
   // TODO: Awful! Fix it!
   return Hash(hashId, 0).getName();
 }
+
+uint32 Hash::getId(std::string name) {
+  // TODO: aren't you tired of writing "TODO" comments? <_<
+  trim(name);
+  to_upper(name);
+  if(name == "CRC" || name == "CRC32")
+    return H_CRC;
+  else if(name == "MD4")
+    return H_MD4;
+  else if(name == "MD5")
+    return H_MD5;
+  else if(name == "ED2K")
+    return H_ED2K;
+  else if(name == "SHA1")
+    return H_SHA1;
+  else if(name == "SHA256")
+    return H_SHA256;
+  else if(name == "SHA512")
+    return H_SHA512;
+  else if(name == "TTH")
+    return H_TTH;
+  else
+    return H_UNKNOWN;
+}
+
 
 
 // -------------------------------------------------------------------------- //

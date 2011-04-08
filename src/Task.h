@@ -9,7 +9,7 @@
 #include "Hash.h"
 #include "FileEntry.h"
 
-class HashTask{
+class HashTask {
 private:
   class HashTaskImpl;
   boost::shared_ptr<HashTaskImpl> impl;
@@ -22,7 +22,7 @@ public:
   arx::ArrayList<Hash> createHashList(uint64 totalLength);
 };
 
-class OutputTask{
+class OutputTask {
 private:
   class OutputTaskImpl;
   boost::shared_ptr<OutputTaskImpl> impl;
@@ -34,6 +34,19 @@ public:
   std::wstring getFileName(uint32 id);
   void add(uint32 id, std::wstring fileName);
   void perform(HashTask task, arx::ArrayList<FileEntry> data);
+};
+
+class CheckTask {
+private:
+  class CheckTaskImpl;
+  boost::shared_ptr<CheckTaskImpl> impl;
+public:
+  CheckTask(std::wstring fileName);
+  CheckTask();
+  HashTask getHashTask();
+  FileEntry getRightEntry();
+  bool isSizeNeedsChecking();
+  void setSizeNeedsChecking(bool value);
 };
 
 #endif

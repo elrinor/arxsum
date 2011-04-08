@@ -172,6 +172,8 @@ void Options::parse(ArrayList<wstring> cmdLine) {
           exit(0);
         } else if(c == 'C') {
           this->impl->hashTask.add(H_CRC);
+        } else if(c == '4') {
+          this->impl->hashTask.add(H_MD4);
         } else if(c == 'M') {
           this->impl->hashTask.add(H_MD5);
         } else if(c == 'H') {
@@ -236,10 +238,10 @@ void Options::printSynopsis() {
   wCout << "  -H, --sha1    Calculate sha1 hash." << endl;
   wCout << "  -E, --ed2k    Calculate ed2k hash." << endl;
   wCout << "  -T, --tth     Calculate tth hash." << endl;
-  wCout << "      --md4     Calculate md4 hash." << endl;
+  wCout << "  -4, --md4     Calculate md4 hash." << endl;
   wCout << "      --sha256  Calculate sha256 hash." << endl;
   wCout << "      --sha512  Calculate sha512 hash." << endl;
-  wCout << "      --all     Calculate all possible hashes." << endl;
+  wCout << "      --all     Calculate all hashes." << endl;
   wCout << endl;
   wCout << "Output options:" << endl;
   wCout << "  -u, --uppercase  Output hash in uppercase." << endl;
@@ -248,7 +250,7 @@ void Options::printSynopsis() {
   wCout << "      --osfv FILE  Output in .sfv format (adds --crc)." << endl;
   wCout << "      --oed2k FILE  Output in .ed2k format (adds --ed2k)." << endl;
   wCout << "      --osha1 FILE  Output in .sha1 format (adds --sha1)." << endl;
-  wCout << "      --obsd FILE  Output int .bsd format." << endl;
+  wCout << "      --obsd FILE  Output in .bsd format." << endl;
   wCout << "  If FILE is set to '*', then output to file with name set according to the" << endl;
   wCout << "  filenames processed. If no format option is provided, then -omd5 is used." << endl;
   wCout << "  If no output encoding is specified, then UTF-8 is used." << endl;

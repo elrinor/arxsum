@@ -25,20 +25,16 @@ namespace detail {
   class HasherImpl {
   protected:
     HashTask task;
-    shared_ptr<HasherCallBack> callBack;
-    void doCallBack(uint64 justProcessed) {
-      if(callBack)
-        callBack->operator() (justProcessed);
-    }
+    HasherCallBack callBack;
   public:
-    HasherImpl(HashTask task, shared_ptr<HasherCallBack> callBack) : task(task), callBack(callBack) {}
+    HasherImpl(HashTask task, HasherCallBack callBack) : task(task), callBack(callBack) {}
     virtual void hash(FileEntry entry) = 0;
   };
 
   class SimpleHasher: public HasherImpl {
   private:
   public:
-    SimpleHasher(HashTask task, shared_ptr<HasherCallBack> callBack): HasherImpl(task, callBack) {}
+    SimpleHasher(HashTask task, HasherCallBack callBack): HasherImpl(task, callBack) {}
     void hash(FileEntry entry) {
       InputStream stream;
       try {
@@ -49,16 +45,16 @@ namespace detail {
       }
       ArrayList<Hash> hashList = task.createHashList(entry.getSize());
       uint64 totalRead = 0;
-      doCallBack(0);
+      callBack(0);
       uint32 read;
       while((read = stream.read(buf.c_array(), (unsigned int) buf.size())) != EOF) {
         totalRead += read;
-        doCallBack(read);
+        callBack(read);
         FOREACH(Hash hash, hashList)
           hash.update(buf.c_array(), read);
       }
       if(totalRead < entry.getSize())
-        doCallBack(entry.getSize() - totalRead);
+        callBack(entry.getSize() - totalRead);
       entry.setSize(totalRead);
       FOREACH(Hash hash, hashList)
         entry.setDigest(hash.getId(), hash.finalize());
@@ -104,7 +100,7 @@ namespace detail {
     ArrayList<ThreadClass> threads;
 
   public:
-    MultiThreadedHasher(HashTask task, shared_ptr<HasherCallBack> callBack): HasherImpl(task, callBack) {
+    MultiThreadedHasher(HashTask task, HasherCallBack callBack): HasherImpl(task, callBack) {
       this->terminating = false;
       uint32 numThreads = 0;
       for(uint32 i = 0; i < task.size(); i++) {
@@ -135,11 +131,11 @@ namespace detail {
       this->beginBarrier->wait(); // start hash thread execution
   
       uint64 totalRead = 0;
-      doCallBack(0);
+      callBack(0);
       uint32 read;
       while((read = stream.read(buf0, (unsigned int) bufSize)) != EOF) {
         totalRead += read;
-        doCallBack(read);
+        callBack(read);
         this->hashBarrier->wait(); // wait for end of hashing
         this->bufToHash = buf0;
         this->bufToHashSize = read;
@@ -149,14 +145,14 @@ namespace detail {
       fileEnd = true;
       this->hashBarrier->wait(); // notify children about file end
       if(totalRead < entry.getSize())
-        doCallBack(entry.getSize() - totalRead);
+        callBack(entry.getSize() - totalRead);
       entry.setSize(totalRead);
       this->beginBarrier->wait(); // wait for children to fill up digest fields
     }
   };
 };
 
-Hasher::Hasher(HashTask task, bool isMultiThreaded, shared_ptr<HasherCallBack> callBack) {
+Hasher::Hasher(HashTask task, bool isMultiThreaded, HasherCallBack callBack) {
   if(isMultiThreaded)
     impl.reset(new ::detail::MultiThreadedHasher(task, callBack));
   else
@@ -167,7 +163,7 @@ void Hasher::hash(FileEntry entry) {
   impl->hash(entry);
 }
 
-Digest Hasher::hash(uint32 hashId, wpath filePath, shared_ptr<HasherCallBack> callBack) {
+Digest Hasher::hash(uint32 hashId, wpath filePath, HasherCallBack callBack) {
   HashTask task;
   task.add(hashId);
   ::detail::SimpleHasher hasher(task, callBack);
@@ -179,26 +175,74 @@ Digest Hasher::hash(uint32 hashId, wpath filePath, shared_ptr<HasherCallBack> ca
   return entry.getDigest(hashId);
 }
 
-void StreamOutHasherCallBack::operator() (uint64 justProcessed) {
-  processed += justProcessed;
-  int progress;
-  if(sumSize == 0)
-    progress = 100;
-  else
-    progress = (int) (100 * processed / sumSize);
-  *printer << "\rProgress: " << setw(3) << progress << "%";
-  double currentTime = t.elapsed();
-  if(currentTime - lastOutputTime > OUTPUTPERIOD) {
-    double speed = (processed - lastProcessed) / (currentTime - lastOutputTime);
-    lastOutputTime = currentTime;
-    lastProcessed = processed;
-    if(speed != 0.0)
-      *printer << "   Speed: " << fixed << showpoint << setprecision(3) << speed / (1024 * 1024) << "Mbps       ";
-  }
+// -------------------------------------------------------------------------- //
+// HasherCallBack
+// -------------------------------------------------------------------------- //
+HasherCallBack::HasherCallBack(::detail::HasherCallBackImpl* impl): impl(impl) {
+  return;
 }
 
-void StreamOutHasherCallBack::clear() {
-  *printer << "\r                                        \r";
+HasherCallBack::HasherCallBack(): impl(new ::detail::HasherCallBackImpl()) {
+  return;
+}
+
+void HasherCallBack::operator() (uint64 justProcessed) {
+  this->impl->operator()(justProcessed);
+}
+
+void HasherCallBack::clear() {
+  this->impl->clear();
+}
+
+// -------------------------------------------------------------------------- //
+// PrinterHasherCallBackImpl
+// -------------------------------------------------------------------------- //
+namespace detail {
+  class PrinterHasherCallBackImpl: public HasherCallBackImpl {
+  private:
+    uint64 sumSize;
+    uint64 processed;
+    uint64 lastProcessed;
+    boost::timer t;
+    double lastOutputTime;
+    arx::Printer* printer;
+
+  public:
+    PrinterHasherCallBackImpl(uint64 sumSize, arx::Printer* printer): sumSize(sumSize), processed(0), lastProcessed(0), lastOutputTime(0.0), printer(printer) {
+      return;
+    }
+
+    virtual void operator() (uint64 justProcessed) {
+      processed += justProcessed;
+      int progress;
+      if(sumSize == 0)
+        progress = 100;
+      else
+        progress = (int) (100 * processed / sumSize);
+      *printer << "\rProgress: " << setw(3) << progress << "%";
+      double currentTime = t.elapsed();
+      if(currentTime - lastOutputTime > OUTPUTPERIOD) {
+        double speed = (processed - lastProcessed) / (currentTime - lastOutputTime);
+        lastOutputTime = currentTime;
+        lastProcessed = processed;
+        if(speed != 0.0)
+          *printer << "   Speed: " << fixed << showpoint << setprecision(3) << speed / (1024 * 1024) << "Mbps       ";
+      }
+      printer->flush();
+    }
+
+    virtual void clear() {
+      *printer << "\r                                        \r";
+      printer->flush();
+    }
+  };
+}
+
+// -------------------------------------------------------------------------- //
+// PrinterHasherCallBack
+// -------------------------------------------------------------------------- //
+PrinterHasherCallBack::PrinterHasherCallBack(uint64 sumSize, arx::Printer* printer): HasherCallBack(new ::detail::PrinterHasherCallBackImpl(sumSize, printer)) {
+  return;
 }
 
 

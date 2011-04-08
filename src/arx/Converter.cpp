@@ -41,11 +41,12 @@ namespace arx {
 // Supplementary functions & classes
 // -------------------------------------------------------------------------- //
 #ifdef ARX_WIN
-    std::string toUpper(std::string& src) {
-      for(unsigned int i = 0; i < src.size(); i++)
-        if(src[i] >= 'a' && src[i] <= 'z')
-          src[i] = src[i] - 'a' + 'A';
-      return src;
+    std::string toUpper(const std::string& src) {
+      std::string result = src;
+      for(unsigned int i = 0; i < result.size(); i++)
+        if(result[i] >= 'a' && result[i] <= 'z')
+          result[i] = result[i] - 'a' + 'A';
+      return result;
     }
 
     bool isNumber(const std::string& s) {

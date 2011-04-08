@@ -1,0 +1,17 @@
+TARGET=arxsum
+CC=g++
+CFLAGS=-Wall
+SOURCES=$(shell find . -name "*.cpp" -o -name "*.c")
+OBJECTS=
+
+all: $(TARGET) clean
+
+clean:
+	rm -f *.o *~ $(TARGET)
+
+$(TARGET): *.cpp
+	$(CC) -o $(TARGET) $(CFLAGS) $< -lrt
+	
+
+
+

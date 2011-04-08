@@ -6,11 +6,13 @@
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/shared_array.hpp>
 #include "arx/Exception.h"
 #include "arx/Collections.h"
 #include "arx/Converter.h"
 #include "Torrent.h"
 #include "Output.h"
+#include "Hash.h"
 #include "Hasher.h"
 #include "Options.h"
 #include "Streams.h"
@@ -20,6 +22,8 @@ using namespace arx;
 using namespace boost;
 using namespace boost::filesystem;
 using namespace boost::algorithm;
+
+const wstring fileNameRegex = _T("([^\"\\*\\?<>\\|]+)");
 
 // -------------------------------------------------------------------------- //
 // CheckError
@@ -112,144 +116,339 @@ CheckError::CheckError(CheckErrorType type, int hashId, Digest rightHash, Digest
 // -------------------------------------------------------------------------- //
 // CheckResultReporter
 // -------------------------------------------------------------------------- //
-void CheckResultReporter::error(CheckError error) {
+namespace detail {
+  class CheckResultReporterImpl {
+  public:
+    virtual void error(CheckError error) {return;};
+    virtual void error(std::wstring errorString) {return;};
+    virtual void begin(const boost::filesystem::wpath& checkSumFilePath) {return;};
+    virtual void beginFile(const boost::filesystem::wpath& filePath, const std::wstring& fileString) {return;};
+    virtual void update(uint64 justProcessed) {return;};
+    virtual void endFile(arx::ArrayList<CheckError> errors) {return;};
+    virtual void end() {return;};
+  };
+}
+
+CheckResultReporter::CheckResultReporter(::detail::CheckResultReporterImpl* impl): impl(impl) {
   return;
+}
+
+void CheckResultReporter::error(CheckError error) {
+  this->impl->error(error);
 }
 
 void CheckResultReporter::error(std::wstring errorString) {
-  return;
+  this->impl->error(errorString);
 }
 
 void CheckResultReporter::begin(const boost::filesystem::wpath& checkSumFilePath) {
-  return;
+  this->impl->begin(checkSumFilePath);
 }
 
 void CheckResultReporter::beginFile(const boost::filesystem::wpath& filePath, const std::wstring& fileString) {
-  return;
+  this->impl->beginFile(filePath, fileString);
 }
 
 void CheckResultReporter::update(uint64 justProcessed) {
-  return;
+  this->impl->update(justProcessed);
 }
 
 void CheckResultReporter::endFile(arx::ArrayList<CheckError> errors) {
-  return;
+  this->impl->endFile(errors);
 }
 
 void CheckResultReporter::end() {
-  return;
+  this->impl->end();
 }
 
+CheckResultReporter::CheckResultReporter(): impl(new ::detail::CheckResultReporterImpl()) {
+  return; 
+}
 
 // -------------------------------------------------------------------------- //
 // PrinterCheckResultReporter
 // -------------------------------------------------------------------------- //
-PrinterCheckResultReporter::PrinterCheckResultReporter(arx::Printer* printer): printer(printer) {
-  this->progressCallBack = StreamOutHasherCallBack((uint64) -1, this->printer);
-}
+namespace detail {
+  class PrinterCheckResultReporterImpl: public CheckResultReporterImpl {
+  private:
+    arx::Printer* printer;
+    std::wstring checkSumFileName;
+    std::wstring fileName;
+    uint64 fileSize;
+    uint32 okCount, errorCount;
+    PrinterHasherCallBack progressCallBack;
 
-void PrinterCheckResultReporter::error(CheckError error) {
-  this->errorCount++;
-  if(error.getType() == CE_NOACCESS)
-    *this->printer << "[error] could not open file: " << this->checkSumFileName << endl;
-  else if(error.getType() == CE_WRONGFORMAT)
-    *this->printer << "[error] unreadable file format (line " << error.getLineNumber() << ")" << endl;
-  else if(error.getType() == CE_TOOMANYERRORS)
-    *this->printer << "[error] too many errors, giving up on " << this->checkSumFileName << endl;
-}
-
-void PrinterCheckResultReporter::error(std::wstring errorString) {
-  this->errorCount++;
-  *this->printer << "[error]" << errorString << endl;
-}
-
-void PrinterCheckResultReporter::begin(const wpath& checkSumFilePath) {
-  *this->printer << "  " << checkSumFilePath << ": " << endl;
-  this->checkSumFileName = checkSumFilePath.native_file_string();
-  this->errorCount = 0;
-  this->okCount = 0;
-}
-
-void PrinterCheckResultReporter::beginFile(const wpath& filePath, const wstring& fileString) {
-  this->progressCallBack = StreamOutHasherCallBack((uint64) -1, this->printer);
-  this->fileName = fileString;
-  try {
-    this->fileSize = file_size(filePath);
-    this->progressCallBack = StreamOutHasherCallBack(this->fileSize, this->printer);
-  } catch (...) {
-    return;
-  }
-}
-
-void PrinterCheckResultReporter::update(uint64 justProcessed) {
-  this->progressCallBack(justProcessed);
-}
-
-void PrinterCheckResultReporter::endFile(ArrayList<CheckError> errors) {
-  this->progressCallBack.clear();
-  if(errors.empty()) {
-    *this->printer << "[ok] " << this->fileName << endl;
-    this->okCount++;
-  } else FOREACH(CheckError error, errors) {
-    this->errorCount++;
-    if(error.getType() == CE_WRONGHASH) {
-      *this->printer << "[error] wrong " << Hash::getName(error.getHashId()) << ": " << this->fileName << endl;
-    } else if(error.getType() == CE_WRONGSIZE) {
-      *this->printer << "[error] wrong file size (" << error.getRightSize() << " != " << error.getWrongSize() << "): " << this->fileName << endl;
-    } else if(error.getType() == CE_NOACCESS) {
-      *this->printer << "[error] could not open file: " << this->fileName << endl;
+  public:
+    virtual void error(CheckError error) {
+      this->errorCount++;
+      if(error.getType() == CE_NOACCESS)
+        *this->printer << "[error] could not open file: " << this->checkSumFileName << endl;
+      else if(error.getType() == CE_WRONGFORMAT)
+        *this->printer << "[error] unreadable file format (line " << error.getLineNumber() << ")" << endl;
+      else if(error.getType() == CE_TOOMANYERRORS)
+        *this->printer << "[error] too many errors, giving up on " << this->checkSumFileName << endl;
     }
-  }
+
+    virtual void error(std::wstring errorString) {
+      this->errorCount++;
+      *this->printer << "[error]" << errorString << endl;
+    }
+
+
+    virtual void begin(const wpath& checkSumFilePath) {
+      *this->printer << "  " << checkSumFilePath << ": " << endl;
+      this->checkSumFileName = checkSumFilePath.native_file_string();
+      this->errorCount = 0;
+      this->okCount = 0;
+    }
+
+    virtual void beginFile(const wpath& filePath, const wstring& fileString) {
+      this->progressCallBack = PrinterHasherCallBack((uint64) -1, this->printer);
+      this->fileName = fileString;
+      try {
+        this->fileSize = file_size(filePath);
+        this->progressCallBack = PrinterHasherCallBack(this->fileSize, this->printer);
+      } catch (...) {
+        return;
+      }
+    }
+
+    virtual void update(uint64 justProcessed) {
+      this->progressCallBack(justProcessed);
+    }
+
+    virtual void endFile(ArrayList<CheckError> errors) {
+      this->progressCallBack.clear();
+      if(errors.empty()) {
+        *this->printer << "[ok] " << this->fileName << endl;
+        this->okCount++;
+      } else FOREACH(CheckError error, errors) {
+        this->errorCount++;
+        if(error.getType() == CE_WRONGHASH) {
+          *this->printer << "[error] wrong " << Hash::getName(error.getHashId()) << ": " << this->fileName << endl;
+        } else if(error.getType() == CE_WRONGSIZE) {
+          *this->printer << "[error] wrong file size (" << error.getRightSize() << " != " << error.getWrongSize() << "): " << this->fileName << endl;
+        } else if(error.getType() == CE_NOACCESS) {
+          *this->printer << "[error] could not open file: " << this->fileName << endl;
+        }
+      }
+    }
+
+    virtual void end() {
+      wCout << "  Errors: " << this->errorCount << endl;
+      wCout << "  Ok: " << this->okCount << endl;
+      wCout << endl;
+    }
+
+    PrinterCheckResultReporterImpl(arx::Printer* printer): printer(printer), progressCallBack(PrinterHasherCallBack((uint64) -1, this->printer)) {
+      //this->progressCallBack = ;
+    }
+  };
 }
 
-void PrinterCheckResultReporter::end() {
-  wCout << "  Errors: " << this->errorCount << endl;
-  wCout << "  Ok: " << this->okCount << endl;
-  wCout << endl;
+PrinterCheckResultReporter::PrinterCheckResultReporter(arx::Printer* printer): CheckResultReporter(new ::detail::PrinterCheckResultReporterImpl(printer)) {
+  return;
 }
 
 
 // -------------------------------------------------------------------------- //
 // DelegatingHasherCallBack
 // -------------------------------------------------------------------------- //
+namespace detail {
+  class DelegatingHasherCallBackImpl: public HasherCallBackImpl {
+  private:
+    CheckResultReporter reporter;
+
+  public:
+    DelegatingHasherCallBackImpl(CheckResultReporter reporter): reporter(reporter) {
+      return;
+    }
+
+    virtual void operator() (uint64 justProcessed) {
+      this->reporter.update(justProcessed);
+    }
+
+    virtual void clear() {
+      return;
+    }
+  };
+}
+
 class DelegatingHasherCallBack: public HasherCallBack {
-private:
-  boost::shared_ptr<CheckResultReporter> reporter;
 public:
-  DelegatingHasherCallBack(boost::shared_ptr<CheckResultReporter> reporter): reporter(reporter) {
-    return;
-  }
-  void operator() (uint64 justProcessed) {
-    this->reporter->update(justProcessed);
-  }
-  void clear() {
+  DelegatingHasherCallBack(CheckResultReporter reporter): HasherCallBack(new ::detail::DelegatingHasherCallBackImpl(reporter)) {
     return;
   }
 };
 
+// -------------------------------------------------------------------------- //
+// LineCheckers
+// -------------------------------------------------------------------------- //
+class LineChecker {
+public:
+  virtual bool applicableTo(wstring line) = 0;
+  virtual bool isDefaultFor(wpath fileName) = 0;
+  virtual void parseLine(wstring line, Map<wstring, CheckTask> m) = 0;
+};
 
-// -------------------------------------------------------------------------- //
-// CheckerImpl
-// -------------------------------------------------------------------------- //
-class Checker::CheckerImpl {
+class SimpleLineChecker: public LineChecker {
 private:
-  boost::shared_ptr<CheckResultReporter> reporter;
+  wregex lineRegex;
+  wregex fileNameRegex;
+  int hashMatchIndex;
+  int fileNameMatchIndex;
+  int sizeMatchIndex;
+  bool sizeCheckNeeded;
+  int hashId;
 
-protected:
-  void check(boost::filesystem::wpath checkSumFilePath, int guessedFormat) {
-    wpath dir = checkSumFilePath.branch_path();
+public:
+  SimpleLineChecker(wstring lineRegex, wstring fileNameRegex, int hashMatchIndex, int fileNameMatchIndex, int hashId, bool sizeCheckNeeded, int sizeMatchIndex): 
+    lineRegex(lineRegex), fileNameRegex(fileNameRegex), hashMatchIndex(hashMatchIndex), fileNameMatchIndex(fileNameMatchIndex), hashId(hashId), sizeCheckNeeded(sizeCheckNeeded), sizeMatchIndex(sizeMatchIndex) {
+    return;
+  }
+
+  virtual bool applicableTo(wstring line) {
+    return regex_match(line, this->lineRegex);
+  }
+
+  virtual bool isDefaultFor(wpath fileName) {
+    return regex_match(to_lower_copy(fileName.leaf()), this->fileNameRegex);
+  }
+
+  virtual void parseLine(wstring line, Map<wstring, CheckTask> m) {
+    wsmatch match;
+    regex_match(line, match, this->lineRegex);
+    wstring fileName = trim_copy(wstring(match[this->fileNameMatchIndex].first, match[this->fileNameMatchIndex].second));
+    string hash = toNarrowString(wstring(match[this->hashMatchIndex].first, match[this->hashMatchIndex].second));
+#ifdef ARX_WIN
+    wstring key = to_upper_copy(fileName);
+#else
+    wstring key = fileName;
+#endif
+    if(m.find(key) == m.end())
+      m[key] = CheckTask(fileName);
+    m[key].getRightEntry().setDigest(this->hashId, Digest::fromHexString(hash));
+    m[key].getHashTask().add(this->hashId);
+    if(sizeCheckNeeded) {
+      m[key].setSizeNeedsChecking(true);
+      m[key].getRightEntry().setSize(lexical_cast<uint64>(wstring(match[this->sizeMatchIndex].first, match[this->sizeMatchIndex].second)));
+    }
+  }
+};
+
+class BSDLineChecker: public LineChecker {
+private:
+  static wregex lineRegex;
+public:
+  virtual bool applicableTo(wstring line) {
+    wsmatch match;
+    if(regex_match(line, match, lineRegex))
+      return Hash::getId(toNarrowString(wstring(match[1].first, match[1].second))) != H_UNKNOWN;
+    return false;
+  }
+
+  virtual bool isDefaultFor(wpath fileName) {
+    //return contains(to_lower_copy(fileName.native_file_string()), _T("bsd"));
+    return true; // small cheat to prioritize bsd format over sfv one
+  }
+
+  virtual void parseLine(wstring line, Map<wstring, CheckTask> m) {
+    wsmatch match;
+    regex_match(line, match, lineRegex);
+    wstring fileName = trim_copy(wstring(match[2].first, match[2].second));
+    uint32 hashId = Hash::getId(toNarrowString(wstring(match[1].first, match[1].second)));
+    string hash = toNarrowString(wstring(match[3].first, match[3].second));
+#ifdef ARX_WIN
+    wstring key = to_upper_copy(fileName);
+#else
+    wstring key = fileName;
+#endif
+    if(m.find(key) == m.end())
+      m[key] = CheckTask(fileName);
+    m[key].getRightEntry().setDigest(hashId, Digest::fromHexString(hash));
+    m[key].getHashTask().add(hashId);
+  }
+};
+
+wregex BSDLineChecker::lineRegex = wregex(_T("([a-zA-Z0-9]+)[ \t]*\\(") + fileNameRegex + _T("\\)[ \t]*=[ \t]*([0-9a-fA-F]+)"));
+
+// -------------------------------------------------------------------------- //
+// FileCheckers
+// -------------------------------------------------------------------------- //
+class FileChecker {
+private:
+  static ArrayList<FileChecker*> fileCheckers;
+  static FileChecker* defaultChecker;
+
+public:
+  virtual bool applicableTo(wpath fileName) {
+    return true;
+  }
+
+  virtual void check(wpath fileName, CheckResultReporter reporter) {
+    for(int i = 0; i < fileCheckers.size(); i++) {
+      if(fileCheckers[i]->applicableTo(fileName)) {
+        fileCheckers[i]->check(fileName, reporter);
+        return;
+      }
+    }
+    defaultChecker->check(fileName, reporter);
+  }
+
+  static ArrayList<FileChecker*> constructFileCheckerList();
+};
+
+class TorrentFileChecker: public FileChecker {
+public:
+  virtual bool applicableTo(wpath fileName) {
+    return ends_with(to_lower_copy(fileName.native_file_string()), ".torrent");
+  }
+  virtual void check(wpath fileName, CheckResultReporter reporter) {
+    checkTorrent(fileName, reporter);
+  }
+};
+
+class TextFileChecker: public FileChecker {
+private:
+  static ArrayList<LineChecker*> lineCheckers;
+
+public:
+  TextFileChecker() {
+    if(lineCheckers.size() == 0) {
+      lineCheckers.push_back(new SimpleLineChecker(fileNameRegex + _T("[ \t]+([0-9a-fA-F]{8})"),                                        _T("(.*crc.*)|(.*sfv.*)"), 2, 1, H_CRC,  false, -1));
+      lineCheckers.push_back(new SimpleLineChecker(_T("ed2k://\\|file\\|") + fileNameRegex + _T("\\|([0-9]+)\\|([0-9a-fA-F]{32})\\|/"), _T(".*ed2k.*"),            3, 1, H_ED2K, true,   2));
+      lineCheckers.push_back(new SimpleLineChecker(_T("([0-9a-fA-F]{32})[ \t\\*]+") + fileNameRegex,                                    _T(".*md5.*"),             1, 2, H_MD5,  false, -1));
+      lineCheckers.push_back(new SimpleLineChecker(_T("([0-9a-fA-F]{40})[ \t\\*]+") + fileNameRegex,                                    _T(".*sha1.*"),            1, 2, H_SHA1, false, -1));
+      lineCheckers.push_back(new BSDLineChecker());
+    }
+  }
+
+  virtual bool applicableTo(wpath fileName) {
+    return true;
+  }
+
+  virtual void check(wpath fileName, CheckResultReporter reporter) {
+    wpath dir = fileName.branch_path();
     if(dir == _T(""))
       dir = _T(".");
 
+    reporter.begin(fileName);
+
     Reader reader;
     try {
-      reader = createReader(checkSumFilePath, options.getInputEncoding(), false);
+      reader = createReader(fileName, options.getInputEncoding(), false);
     } catch (...) {
-      this->reporter->error(CheckError(CE_NOACCESS));
+      reporter.error(CheckError(CE_NOACCESS));
+      reporter.end();
+      return;
     }
     Scanner scanner(reader);
 
-    this->reporter->begin(checkSumFilePath);
+    Map<wstring, CheckTask> checkTasks;
+    shared_array<bool> isApplicable = shared_array<bool>(new bool[lineCheckers.size()]);
+    shared_array<bool> isDefaultFor = shared_array<bool>(new bool[lineCheckers.size()]);
+    for(int i = 0; i < lineCheckers.size(); i++)
+      isDefaultFor[i] = lineCheckers[i]->isDefaultFor(fileName);
 
     int lineN = 0;
     int criticalErrorCount = 0;
@@ -266,137 +465,118 @@ protected:
         continue;
 
       if(criticalErrorCount > HASHFILEMAXERRORS) {
-        this->reporter->error(CheckError(CE_TOOMANYERRORS));
+        reporter.error(CheckError(CE_TOOMANYERRORS));
         break;
       }
 
-      uint32 hashId = H_UNKNOWN;
-      wstring fileName;
-      wstring digest;
-      uint64 fileSize;
+      for(int i = 0; i < lineCheckers.size(); i++)
+        isApplicable[i] = lineCheckers[i]->applicableTo(s);
 
-      const static wstring fileNameRegex = _T("([^\"\\*\\?<>\\|]+)");
-      const static wregex regexEd2k(_T("ed2k://\\|file\\|") + fileNameRegex + _T("\\|([0-9]+)\\|([0-9a-fA-F]{32})\\|/"));
-      const static wregex regexMd5(_T("([0-9a-fA-F]{32})[ \t\\*]+") + fileNameRegex);
-      const static wregex regexSha1(_T("([0-9a-fA-F]{40})[ \t\\*]+") + fileNameRegex);
-      const static wregex regexCrc(fileNameRegex + _T("[ \t]+([0-9a-fA-F]{8})"));
-      const static wregex regexBsd(_T("([a-zA-Z]+) *\\(") + fileNameRegex + _T("\\) *= *([0-9a-fA-F]+)"));
-
-      wsmatch matchEd2k;
-      wsmatch matchMd5;
-      wsmatch matchCrc;
-      wsmatch matchSha1;
-      wsmatch matchBsd;
-      if(regex_match(s, matchEd2k, regexEd2k)) {
-        hashId = H_ED2K;
-        fileName = wstring(matchEd2k[1].first, matchEd2k[1].second);
-        fileSize = lexical_cast<uint64>(string(matchEd2k[2].first, matchEd2k[2].second));
-        digest = wstring(matchEd2k[3].first, matchEd2k[3].second);
-      } else {
-        regex_match(s, matchMd5, regexMd5);
-        regex_match(s, matchCrc, regexCrc);
-        regex_match(s, matchSha1, regexSha1);
-        if((matchMd5[0].matched || matchSha1[0].matched) && matchCrc[0].matched && (guessedFormat != O_MD5 && guessedFormat != O_SFV && guessedFormat != O_SHA1)) {
-          this->reporter->error(CheckError(CE_WRONGFORMAT, lineN));
-          criticalErrorCount++;
-          continue;
-        } else if(matchMd5[0].matched && guessedFormat == O_MD5)
-          hashId = H_MD5;
-        else if(matchCrc[0].matched && guessedFormat == O_SFV)
-          hashId = H_CRC;
-        else if(matchSha1[0].matched && guessedFormat == O_SHA1)
-          hashId = H_SHA1;
-        else if(matchMd5[0].matched)
-          hashId = H_MD5;
-        else if(matchCrc[0].matched)
-          hashId = H_CRC;
-        else if(matchSha1[0].matched)
-          hashId = H_SHA1;
-        if(hashId == H_MD5) {
-          fileName = wstring(matchMd5[2].first, matchMd5[2].second);
-          digest = wstring(matchMd5[1].first, matchMd5[1].second);
-        } else if(hashId == H_SHA1) {
-          fileName = wstring(matchSha1[2].first, matchSha1[2].second);
-          digest = wstring(matchSha1[1].first, matchSha1[1].second);
-        } else if(hashId == H_CRC) {
-          fileName = wstring(matchCrc[1].first, matchCrc[1].second);
-          digest = wstring(matchCrc[2].first, matchCrc[2].second);
+      int applicableCount = 0;
+      int applicableIndex = -1;
+      for(int i = 0; i < lineCheckers.size(); i++) {
+        if(isApplicable[i]) {
+          applicableCount++;
+          applicableIndex = i;
         }
       }
 
-      if(hashId == H_UNKNOWN) {
-        this->reporter->error(CheckError(CE_WRONGFORMAT, lineN));
+      if(applicableCount == 0) {
+        reporter.error(CheckError(CE_WRONGFORMAT, lineN));
         criticalErrorCount++;
         continue;
       }
 
-      wpath filePath = wpath(fileName).is_complete() ? fileName : (dir / fileName);
+      if(applicableCount > 1) {
+        applicableCount = 0;
+        for(int i = 0; i < lineCheckers.size(); i++) {
+          if(isApplicable[i] && isDefaultFor[i]) {
+            applicableCount++;
+            applicableIndex = i;
+          }
+        }
+        if(applicableCount > 1 || applicableCount == 0) {
+          reporter.error(CheckError(CE_WRONGFORMAT, lineN));
+          criticalErrorCount++;
+          continue;
+        }
+      }
 
-      this->reporter->beginFile(filePath, fileName);
+      lineCheckers[applicableIndex]->parseLine(s, checkTasks);
+    }
+
+    for(Map<wstring, CheckTask>::iterator i = checkTasks.begin(); i != checkTasks.end(); i++) {
+      wpath filePath = i->second.getRightEntry().getPath();
+      wstring fileString = filePath.native_file_string();
+      if(!filePath.is_complete())
+        filePath = dir / filePath;
+
+      reporter.beginFile(filePath, fileString);
       ArrayList<CheckError> errors;
       try {
-        uint64 actualFileSize = file_size(dir / fileName);
-        shared_ptr<DelegatingHasherCallBack> callBack(new DelegatingHasherCallBack(this->reporter));
-        Digest realDigest = Hasher::hash(hashId, filePath, callBack);
-        Digest rightDigest = Digest::fromHexString(toNarrowString(digest));
-        if(realDigest != rightDigest)
-          errors.push_back(CheckError(CE_WRONGHASH, hashId, rightDigest, realDigest));
-        if(hashId == H_ED2K && actualFileSize != fileSize)
-          errors.push_back(CheckError(CE_WRONGSIZE, fileSize, actualFileSize));
+        DelegatingHasherCallBack callBack(reporter);
+        
+        HashTask hashTask = i->second.getHashTask();
+        FileEntry rightEntry = i->second.getRightEntry();
+        FileEntry realEntry = FileEntry(rightEntry.getPath());
+
+        Hasher hasher(hashTask, options.isMultiThreaded(), callBack);
+        hasher.hash(realEntry);
+
+        if(realEntry.isFailed())
+          throw runtime_error("v_v");
+
+        for(int hashId = 0; hashId < H_COUNT; hashId++) {
+          if(hashTask.isSet(hashId)) {
+            if(rightEntry.getDigest(hashId) != realEntry.getDigest(hashId))
+              errors.push_back(CheckError(CE_WRONGHASH, hashId, rightEntry.getDigest(hashId), realEntry.getDigest(hashId)));
+            if(i->second.isSizeNeedsChecking() && rightEntry.getSize() != file_size(filePath))
+              errors.push_back(CheckError(CE_WRONGSIZE, rightEntry.getSize(), realEntry.getSize()));
+          }
+        }
       } catch (exception) {
         errors.push_back(CheckError(CE_NOACCESS));
       }
-      this->reporter->endFile(errors);
+      reporter.endFile(errors);
     }
 
-    this->reporter->end();
-    }
+    reporter.end();
+  }
+};
+ArrayList<LineChecker*> TextFileChecker::lineCheckers;
+
+ArrayList<FileChecker*> FileChecker::fileCheckers = FileChecker::constructFileCheckerList();
+FileChecker* FileChecker::defaultChecker = new TextFileChecker();
+
+ArrayList<FileChecker*> FileChecker::constructFileCheckerList() {
+  ArrayList<FileChecker*> result;
+  result.push_back(new TorrentFileChecker());
+  return result;
+}
+
+
+// -------------------------------------------------------------------------- //
+// CheckerImpl
+// -------------------------------------------------------------------------- //
+class Checker::CheckerImpl {
+private:
+  CheckResultReporter reporter;
+  FileChecker checker;
 
 public:
-  CheckerImpl(boost::shared_ptr<CheckResultReporter> reporter): reporter(reporter) {
+  CheckerImpl(CheckResultReporter reporter): reporter(reporter) {
     return;
   }
 
-  void check(boost::filesystem::wpath paramFilePath) {
-    wstring fileName = to_lower_copy(paramFilePath.leaf());
-    
-    if(ends_with(fileName, _T(".torrent"))) {
-      checkTorrent(paramFilePath, this->reporter);
-    } else {
-      uint32 guess = H_UNKNOWN;
-      uint32 recognizedCount = 0;
-      if(contains(fileName, _T("crc")) || contains(fileName, _T("sfv"))) {
-        recognizedCount++;
-        guess = O_SFV;
-      }
-      if(contains(fileName, _T("md5"))) {
-        recognizedCount++;
-        guess = O_MD5;
-      }
-      if(contains(fileName, _T("ed2k"))) {
-        recognizedCount++;
-        guess = O_ED2K;
-      }
-      if(contains(fileName, _T("sha1"))) {
-        recognizedCount++;
-        guess = O_SHA1;
-      }
-      if(contains(fileName, _T("bsd"))) {
-        recognizedCount++;
-        guess = O_BSD;
-      }
-      if(recognizedCount > 1)
-        guess = H_UNKNOWN;
-      check(paramFilePath, guess);
-    }
+  void check(wpath filePath) {
+    checker.check(filePath, reporter);
   }
 };
-
 
 // -------------------------------------------------------------------------- //
 // Checker
 // -------------------------------------------------------------------------- //
-Checker::Checker(boost::shared_ptr<CheckResultReporter> reporter): impl(new CheckerImpl(reporter)) {
+Checker::Checker(CheckResultReporter reporter): impl(new CheckerImpl(reporter)) {
   return;
 }
 

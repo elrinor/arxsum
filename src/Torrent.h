@@ -6,6 +6,6 @@
 #include <boost/shared_ptr.hpp>
 #include "Checker.h"
 
-void checkTorrent(boost::filesystem::wpath torrentFile, boost::shared_ptr<CheckResultReporter> reporter = boost::shared_ptr<CheckResultReporter>());
+void checkTorrent(boost::filesystem::wpath torrentFile, CheckResultReporter reporter = CheckResultReporter());
 
 #endif

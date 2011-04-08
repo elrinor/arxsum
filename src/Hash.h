@@ -15,7 +15,7 @@ enum {
   H_SHA512,
   H_TTH,
   H_COUNT,
-  H_UNKNOWN = -1
+  H_UNKNOWN = 0xFFFFFFFF
 };
 
 class Digest {
@@ -49,6 +49,7 @@ public:
   std::string getName();
   uint32 getId();
   static std::string getName(uint32 hashId);
+  static uint32 getId(std::string name);
 };
 
 Digest calculateHash(const void* data, size_t len, uint32 hashId);

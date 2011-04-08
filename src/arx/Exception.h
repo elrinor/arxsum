@@ -16,7 +16,7 @@ namespace arx {
 
     wruntime_error& operator=(const wruntime_error& rhs);
 
-    virtual ~wruntime_error();
+    virtual ~wruntime_error() throw();
 
     const std::wstring& getErrorMessage() const;
   } ;

@@ -13,7 +13,7 @@
 #define OUTPUTPERIOD 0.5f
 
 // Size of buffer for file read operations
-#define FILEBUFSIZE  (1024 * 1024)
+#define FILEBUFSIZE (1024 * 1024)
 
 // Size of data chunk used for speed testing
 #define TESTDATACHUNKSIZE ((1024 - 7) * (1024 - 13))
@@ -45,17 +45,19 @@ typedef long long int64;
 
 // Asm defines for different libs
 #ifdef USE_ASM
-#  define MD5_ASM
-#  define SHA1_ASM
-#  define CRC_ASM
-#  define SHAREAZA_USE_ASM
+#  ifdef ARX_WIN
+#    define MD5_ASM
+#    define SHA1_ASM
+#    define CRC_ASM
+#    define SHAREAZA_USE_ASM
+#  endif
 #endif
 
 // Boost foreach macro
 #define FOREACH BOOST_FOREACH
 
 // ^_^
-#define VERSION "v1.3.3"
+#define VERSION "v1.3.4"
 
 // Wide strings
 #ifndef _T

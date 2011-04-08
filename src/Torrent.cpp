@@ -102,7 +102,7 @@ ArrayList<CheckError> errorList(CheckError error) {
   return result;
 }
 
-void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> reporter) {
+void checkTorrent(wpath torrentFile, CheckResultReporter reporter) {
   wpath dir = torrentFile.branch_path();
   if(dir == _T(""))
     dir = _T(".");
@@ -112,27 +112,27 @@ void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> repo
   ArrayList<wstring> files;
   ArrayList<uint64> fileSizes;
 
-  reporter->begin(torrentFile);
+  reporter.begin(torrentFile);
 
   try {
     if(!exists(torrentFile)) {
-      reporter->error(CheckError(CE_NOACCESS));
-      reporter->end();
+      reporter.error(CheckError(CE_NOACCESS));
+      reporter.end();
       return;
     }
 
     unsigned long long torrentSizeL = file_size(torrentFile);
     if(torrentSizeL > MAX_TORRENT_FILE_SIZE) {
-      reporter->error(_T("Torrent file too big: ") + torrentFile.native_file_string());
-      reporter->end();
+      reporter.error(_T("Torrent file too big: ") + torrentFile.native_file_string());
+      reporter.end();
       return;
     }
 
     MemBuffer torrentFileBuf((unsigned int) torrentSizeL);
     torrentFileBuf.fillFromStream(FileInputStream(torrentFile.native_file_string(), OM_SEQUENTIAL_SCAN));
     if(torrentFileBuf.getSize() != torrentSizeL) {
-      reporter->error(_T("Error while reading torrent file: ") + torrentFile.native_file_string());
-      reporter->end();
+      reporter.error(_T("Error while reading torrent file: ") + torrentFile.native_file_string());
+      reporter.end();
       return;
     }
 
@@ -161,13 +161,13 @@ void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> repo
       }
     }
   } catch (...) {
-    reporter->error(CheckError(CE_WRONGFORMAT, 0));
-    reporter->end();
+    reporter.error(CheckError(CE_WRONGFORMAT, 0));
+    reporter.end();
     return;
   }
 
   if(files.empty()) {
-    reporter->end();
+    reporter.end();
     return;
   }
 
@@ -199,18 +199,18 @@ void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> repo
       try {
         stream = FileInputStream(files[fileIndex], OM_SEQUENTIAL_SCAN | OM_UNBUFFERED);
       } catch (...) {
-        reporter->beginFile(wpath(), files[fileIndex]);
-        reporter->endFile(errorList(CheckError(CE_NOACCESS)));
-        reporter->error(CheckError(CE_TOOMANYERRORS));
-        reporter->end();
+        reporter.beginFile(wpath(), files[fileIndex]);
+        reporter.endFile(errorList(CheckError(CE_NOACCESS)));
+        reporter.error(CheckError(CE_TOOMANYERRORS));
+        reporter.end();
         return;
       }
 
       if(!exists(files[fileIndex])) {
-        reporter->beginFile(wpath(), files[fileIndex]);
-        reporter->endFile(errorList(CheckError(CE_NOACCESS)));
-        reporter->error(CheckError(CE_TOOMANYERRORS));
-        reporter->end();
+        reporter.beginFile(wpath(), files[fileIndex]);
+        reporter.endFile(errorList(CheckError(CE_NOACCESS)));
+        reporter.error(CheckError(CE_TOOMANYERRORS));
+        reporter.end();
         return;
       }
 
@@ -223,15 +223,15 @@ void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> repo
       }
       
       if(realFileSize != fileSizes[fileIndex]) {
-        reporter->beginFile(wpath(), files[fileIndex]);
-        reporter->endFile(errorList(CheckError(CE_WRONGSIZE, fileSizes[fileIndex], realFileSize)));
-        reporter->error(CheckError(CE_TOOMANYERRORS));
-        reporter->end();
+        reporter.beginFile(wpath(), files[fileIndex]);
+        reporter.endFile(errorList(CheckError(CE_WRONGSIZE, fileSizes[fileIndex], realFileSize)));
+        reporter.error(CheckError(CE_TOOMANYERRORS));
+        reporter.end();
         return;
       }
 
       if(currentFiles.empty())
-        reporter->beginFile(filePath, files[fileIndex]);
+        reporter.beginFile(filePath, files[fileIndex]);
 
       currentFiles.push_back(files[fileIndex]);
       currentFilePaths.push_back(filePath);
@@ -245,7 +245,7 @@ void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> repo
       readBuf.reset();
       read = readBuf.updateFromStream(stream);
       if(read != EOF)
-        reporter->update(read);
+        reporter.update(read);
     }
 
     uint32 toHash = min(readBuf.getLeft(), pieceLen - hashed);
@@ -262,19 +262,19 @@ void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> repo
       if((read == EOF && fileIndex == files.size() - 1) || (read == EOF && hashed == pieceLen) || firstChunk) {
         bool currentHadFails = hadFails || (chunkDigest != realDigest);
         if(currentHadFails)
-          reporter->endFile(errorList(CheckError(CE_WRONGHASH, H_SHA1, Digest(), Digest())));
+          reporter.endFile(errorList(CheckError(CE_WRONGHASH, H_SHA1, Digest(), Digest())));
         else
-          reporter->endFile(ArrayList<CheckError>());
+          reporter.endFile(ArrayList<CheckError>());
 
         int32 sizeDec = ((read == EOF && hashed == pieceLen) || (read == EOF && fileIndex == files.size() - 1)) ? 0 : 1;
 
         hadFails = chunkDigest != realDigest;
         for(uint32 i = 1; i < currentFiles.size() - sizeDec; i++) { // ? -1
-          reporter->beginFile(currentFilePaths[i], currentFiles[i]);
+          reporter.beginFile(currentFilePaths[i], currentFiles[i]);
           if(hadFails)
-            reporter->endFile(errorList(CheckError(CE_WRONGHASH, H_SHA1, Digest(), Digest())));
+            reporter.endFile(errorList(CheckError(CE_WRONGHASH, H_SHA1, Digest(), Digest())));
           else
-            reporter->endFile(ArrayList<CheckError>());
+            reporter.endFile(ArrayList<CheckError>());
         }
         firstChunk = false;
 
@@ -282,7 +282,7 @@ void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> repo
         currentFilePaths.erase(0, currentFilePaths.size() - sizeDec);
 
         if(!currentFiles.empty())
-          reporter->beginFile(currentFilePaths[0], currentFiles[0]);
+          reporter.beginFile(currentFilePaths[0], currentFiles[0]);
       }
 
       if(chunkDigest != realDigest)
@@ -291,5 +291,5 @@ void checkTorrent(wpath torrentFile, boost::shared_ptr<CheckResultReporter> repo
     }
   }
 
-  reporter->end();
+  reporter.end();
 }

@@ -7,6 +7,10 @@
 // Use boost?
 #define ARX_USE_BOOST
 
+// For statically sized matrices with cols >= ARX_LINEAR_SOLVER_PERMUTATION_VERTOR_USAGE_BORDER
+// we use linear solver that doesn't swap matrix rows directly in memory, but performs all operations
+// indirectly, by means of a permutation vector
+#define ARX_LINEAR_SOLVER_PERMUTATION_VERTOR_USAGE_BORDER 5
 
 // -------------------------------------------------------------------------- //
 // Guess defines - do not change
@@ -22,3 +26,4 @@
 #endif
 
 #endif
+
