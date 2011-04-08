@@ -1,0 +1,187 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="debug|Win32">
+      <Configuration>debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release|Win32">
+      <Configuration>release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{67FE9604-0F2B-4CEC-A7EE-E62F9759C9AB}</ProjectGuid>
+    <RootNamespace>arxsum</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)bin/debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">bin/debug\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='release|Win32'">$(SolutionDir)bin/release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='release|Win32'">bin/release\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='release|Win32'">false</LinkIncremental>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='release|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='release|Win32'" />
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention>
+      </DataExecutionPrevention>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='release|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <IgnoreSpecificDefaultLibraries>MSVCRT.LIB;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention>
+      </DataExecutionPrevention>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Checker.cpp" />
+    <ClCompile Include="src\FileEntry.cpp" />
+    <ClCompile Include="src\Hash.cpp" />
+    <ClCompile Include="src\Hasher.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Options.cpp" />
+    <ClCompile Include="src\Output.cpp" />
+    <ClCompile Include="src\Streams.cpp">
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)%(Filename)1.obj</ObjectFileName>
+      <XMLDocumentationFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)%(Filename)1.xdc</XMLDocumentationFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='release|Win32'">$(IntDir)%(Filename)1.obj</ObjectFileName>
+      <XMLDocumentationFileName Condition="'$(Configuration)|$(Platform)'=='release|Win32'">$(IntDir)%(Filename)1.xdc</XMLDocumentationFileName>
+    </ClCompile>
+    <ClCompile Include="src\Task.cpp" />
+    <ClCompile Include="src\Test.cpp" />
+    <ClCompile Include="src\Torrent.cpp" />
+    <ClCompile Include="src\hash\md4\md4_dgst.c" />
+    <ClCompile Include="src\hash\md4\md4_one.c" />
+    <ClCompile Include="src\hash\md5\md5_dgst.c" />
+    <ClCompile Include="src\hash\md5\md5_one.c" />
+    <ClCompile Include="src\hash\sha\sha1_one.c" />
+    <ClCompile Include="src\hash\sha\sha1dgst.c" />
+    <ClCompile Include="src\hash\sha\sha256.c" />
+    <ClCompile Include="src\hash\sha\sha512.c" />
+    <ClCompile Include="src\hash\sha\sha_dgst.c" />
+    <ClCompile Include="src\hash\sha\sha_one.c" />
+    <ClCompile Include="src\hash\tth\TigerTree.cpp" />
+    <ClCompile Include="src\arx\Converter.cpp" />
+    <ClCompile Include="src\arx\Exception.cpp" />
+    <ClCompile Include="src\arx\Streams.cpp" />
+    <ClCompile Include="src\libtorrent\src\entry.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\ArrayList.h" />
+    <ClInclude Include="src\Checker.h" />
+    <ClInclude Include="src\config.h" />
+    <ClInclude Include="src\FileEntry.h" />
+    <ClInclude Include="src\Hash.h" />
+    <ClInclude Include="src\Hasher.h" />
+    <ClInclude Include="src\Map.h" />
+    <ClInclude Include="src\Options.h" />
+    <ClInclude Include="src\Output.h" />
+    <ClInclude Include="src\Streams.h" />
+    <ClInclude Include="src\Task.h" />
+    <ClInclude Include="src\Test.h" />
+    <ClInclude Include="src\Torrent.h" />
+    <ClInclude Include="src\hash\tth\Machine.h" />
+    <ClInclude Include="src\hash\md32_common.h" />
+    <ClInclude Include="src\hash\md4\md4.h" />
+    <ClInclude Include="src\hash\md4\md4_locl.h" />
+    <ClInclude Include="src\hash\md5\md5.h" />
+    <ClInclude Include="src\hash\md5\md5_locl.h" />
+    <ClInclude Include="src\hash\sha\sha.h" />
+    <ClInclude Include="src\hash\sha\sha_locl.h" />
+    <ClInclude Include="src\hash\tth\TigerBoxes.h" />
+    <ClInclude Include="src\hash\tth\TigerTree.h" />
+    <ClInclude Include="src\arx\config.h" />
+    <ClInclude Include="src\arx\Converter.h" />
+    <ClInclude Include="src\arx\Exception.h" />
+    <ClInclude Include="src\arx\Mpl.h" />
+    <ClInclude Include="src\arx\Preprocessor.h" />
+    <ClInclude Include="src\arx\smart_ptr.h" />
+    <ClInclude Include="src\arx\Streams.h" />
+    <ClInclude Include="src\libtorrent\include\bencode.hpp" />
+    <ClInclude Include="src\libtorrent\include\config.hpp" />
+    <ClInclude Include="src\libtorrent\include\entry.hpp" />
+    <ClInclude Include="src\libtorrent\include\size_type.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="src\hash\md5\asm\md5-586-win32.asm" />
+    <MASM Include="src\hash\sha\asm\sha1-586.asm" />
+    <MASM Include="src\hash\tth\asm\Tiger_asm.asm" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
+  </ImportGroup>
+</Project>

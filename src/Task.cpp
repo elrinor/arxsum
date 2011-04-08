@@ -3,9 +3,9 @@
 #include <boost/array.hpp>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
-#include "arx/Collections.h"
 #include "arx/Converter.h"
 #include "Output.h"
+#include "ArrayList.h"
 #include "Streams.h"
 #include "Options.h"
 
@@ -99,10 +99,10 @@ void OutputTask::perform(HashTask task, ArrayList<FileEntry> data) {
     }
   }
   if(needsName) {
-    wstring lastLeaf = data[0].getPath().leaf();
+    wstring lastLeaf = data[0].getPath().filename().wstring();
     size_t nameLen = lastLeaf.size();
     for(size_t i = 1; i < data.size(); i++) {
-      wstring leaf = data[i].getPath().leaf();
+      wstring leaf = data[i].getPath().filename().wstring();
       nameLen = min(nameLen, leaf.size());
       size_t newNameLen;
       for(newNameLen = 0; newNameLen < nameLen; newNameLen++)

@@ -5,7 +5,7 @@
 #include <boost/array.hpp>
 #include <boost/foreach.hpp>
 #include <string>
-#include "arx/Collections.h"
+#include "ArrayList.h"
 #include "Hash.h"
 #include "FileEntry.h"
 
@@ -19,7 +19,7 @@ public:
   void remove(uint32 id);
   bool isSet(uint32 id);
   size_t size();
-  arx::ArrayList<Hash> createHashList(uint64 totalLength);
+  ArrayList<Hash> createHashList(uint64 totalLength);
 };
 
 class OutputTask {
@@ -33,7 +33,7 @@ public:
   size_t size();
   std::wstring getFileName(uint32 id);
   void add(uint32 id, std::wstring fileName);
-  void perform(HashTask task, arx::ArrayList<FileEntry> data);
+  void perform(HashTask task, ArrayList<FileEntry> data);
 };
 
 class CheckTask {

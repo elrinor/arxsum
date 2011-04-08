@@ -2,8 +2,8 @@
 #define __ARX_CONVERTER_H__
 
 #include "config.h"
-#include "smart_ptr.h"
 #include <string>
+#include <boost/shared_ptr.hpp>
 
 namespace arx {
 
@@ -14,7 +14,7 @@ namespace arx {
 
   class ToUTF16Converter {
   private:
-    shared_ptr<detail::ToUTF16ConverterInterface> impl;
+    boost::shared_ptr<detail::ToUTF16ConverterInterface> impl;
   public:
     /**
      * @brief Creates a new converter from a system default codepage.
@@ -50,7 +50,7 @@ namespace arx {
 
   class FromUTF16Converter {
   private:
-    shared_ptr<detail::FromUTF16ConverterInterface> impl;
+    boost::shared_ptr<detail::FromUTF16ConverterInterface> impl;
   public:
     /**
      * @brief Creates a new converter to a system default codepage.

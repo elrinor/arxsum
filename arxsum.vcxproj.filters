@@ -1,0 +1,217 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Hash">
+      <UniqueIdentifier>{ca1e2074-7941-4ad8-9a43-c9cc4cacbb45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="arx">
+      <UniqueIdentifier>{1abe327d-0309-4dca-8cb5-bdb32145016d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libTorrent">
+      <UniqueIdentifier>{b23d85b8-de10-4be0-9d07-d65ccc6a2455}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Checker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FileEntry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Hash.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Hasher.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Options.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Output.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Streams.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Task.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Torrent.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\md4\md4_dgst.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\md4\md4_one.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\md5\md5_dgst.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\md5\md5_one.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\sha\sha1_one.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\sha\sha1dgst.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\sha\sha256.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\sha\sha512.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\sha\sha_dgst.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\sha\sha_one.c">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash\tth\TigerTree.cpp">
+      <Filter>Hash</Filter>
+    </ClCompile>
+    <ClCompile Include="src\arx\Converter.cpp">
+      <Filter>arx</Filter>
+    </ClCompile>
+    <ClCompile Include="src\arx\Exception.cpp">
+      <Filter>arx</Filter>
+    </ClCompile>
+    <ClCompile Include="src\arx\Streams.cpp">
+      <Filter>arx</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libtorrent\src\entry.cpp">
+      <Filter>libTorrent</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Checker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\FileEntry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Hash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Hasher.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Options.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Output.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Streams.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Task.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Test.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Torrent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\tth\Machine.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\md32_common.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\md4\md4.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\md4\md4_locl.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\md5\md5.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\md5\md5_locl.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\sha\sha.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\sha\sha_locl.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\tth\TigerBoxes.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash\tth\TigerTree.h">
+      <Filter>Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="src\arx\config.h">
+      <Filter>arx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\arx\Converter.h">
+      <Filter>arx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\arx\Exception.h">
+      <Filter>arx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\arx\Mpl.h">
+      <Filter>arx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\arx\Preprocessor.h">
+      <Filter>arx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\arx\smart_ptr.h">
+      <Filter>arx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\arx\Streams.h">
+      <Filter>arx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\libtorrent\include\bencode.hpp">
+      <Filter>libTorrent</Filter>
+    </ClInclude>
+    <ClInclude Include="src\libtorrent\include\config.hpp">
+      <Filter>libTorrent</Filter>
+    </ClInclude>
+    <ClInclude Include="src\libtorrent\include\entry.hpp">
+      <Filter>libTorrent</Filter>
+    </ClInclude>
+    <ClInclude Include="src\libtorrent\include\size_type.hpp">
+      <Filter>libTorrent</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ArrayList.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Map.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="src\hash\md5\asm\md5-586-win32.asm">
+      <Filter>Hash</Filter>
+    </MASM>
+    <MASM Include="src\hash\sha\asm\sha1-586.asm">
+      <Filter>Hash</Filter>
+    </MASM>
+    <MASM Include="src\hash\tth\asm\Tiger_asm.asm">
+      <Filter>Hash</Filter>
+    </MASM>
+  </ItemGroup>
+</Project>

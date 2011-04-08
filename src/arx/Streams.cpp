@@ -1291,11 +1291,11 @@ namespace arx {
 // -------------------------------------------------------------------------- //
 // Scanner
 // -------------------------------------------------------------------------- //
-  Scanner::Scanner(Reader reader): BaseFromMember(shared_ptr<detail::ReaderBuffer>(new detail::ReaderBuffer(reader))), wistream(member.get()) {
+  Scanner::Scanner(Reader reader): BaseFromMember(boost::shared_ptr<detail::ReaderBuffer>(new detail::ReaderBuffer(reader))), wistream(member.get()) {
     return;
   }
 
-  Scanner::Scanner(Reader reader, int bufSize): BaseFromMember(shared_ptr<detail::ReaderBuffer>(new detail::ReaderBuffer(reader, bufSize))), wistream(member.get()) {
+  Scanner::Scanner(Reader reader, int bufSize): BaseFromMember(boost::shared_ptr<detail::ReaderBuffer>(new detail::ReaderBuffer(reader, bufSize))), wistream(member.get()) {
     return;
   }
 
@@ -1313,11 +1313,11 @@ namespace arx {
 // -------------------------------------------------------------------------- //
 // Printer
 // -------------------------------------------------------------------------- //
-  Printer::Printer(Writer writer): BaseFromMember(shared_ptr<detail::WriterBuffer>(new detail::WriterBuffer(writer))), wostream(member.get()) {
+  Printer::Printer(Writer writer): BaseFromMember(boost::shared_ptr<detail::WriterBuffer>(new detail::WriterBuffer(writer))), wostream(member.get()) {
     return;
   }
 
-  Printer::Printer(Writer writer, int bufSize): BaseFromMember(shared_ptr<detail::WriterBuffer>(new detail::WriterBuffer(writer, bufSize))), wostream(member.get()) {
+  Printer::Printer(Writer writer, int bufSize): BaseFromMember(boost::shared_ptr<detail::WriterBuffer>(new detail::WriterBuffer(writer, bufSize))), wostream(member.get()) {
     return;
   }
 

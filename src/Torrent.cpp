@@ -7,7 +7,6 @@
 #include <boost/filesystem.hpp>
 #include "libtorrent/include/bencode.hpp"
 #include "arx/Exception.h"
-#include "arx/Collections.h"
 #include "arx/Streams.h"
 #include "arx/Converter.h"
 #include "Hash.h"
@@ -123,15 +122,15 @@ void checkTorrent(wpath torrentFile, CheckResultReporter reporter) {
 
     unsigned long long torrentSizeL = file_size(torrentFile);
     if(torrentSizeL > MAX_TORRENT_FILE_SIZE) {
-      reporter.error(_T("Torrent file too big: ") + torrentFile.native_file_string());
+      reporter.error(_T("Torrent file too big: ") + torrentFile.native());
       reporter.end();
       return;
     }
 
     MemBuffer torrentFileBuf((unsigned int) torrentSizeL);
-    torrentFileBuf.fillFromStream(FileInputStream(torrentFile.native_file_string(), OM_SEQUENTIAL_SCAN));
+    torrentFileBuf.fillFromStream(FileInputStream(torrentFile.native(), OM_SEQUENTIAL_SCAN));
     if(torrentFileBuf.getSize() != torrentSizeL) {
-      reporter.error(_T("Error while reading torrent file: ") + torrentFile.native_file_string());
+      reporter.error(_T("Error while reading torrent file: ") + torrentFile.native());
       reporter.end();
       return;
     }

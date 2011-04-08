@@ -113,7 +113,7 @@ namespace detail {
       this->readBarrier = new barrier(numThreads + 1);
       this->hashBarrier = new barrier(numThreads + 1);
       FOREACH(ThreadClass& singleThread, threads)
-        this->threadGroup.create_thread(bind(&ThreadClass::operator(), &singleThread));
+        this->threadGroup.create_thread(boost::bind(&ThreadClass::operator(), &singleThread));
     }
     void hash(FileEntry entry) {
       InputStream stream;
@@ -171,7 +171,7 @@ Digest Hasher::hash(uint32 hashId, wpath filePath, HasherCallBack callBack) {
   entry.setSize(file_size(filePath));
   hasher.hash(entry);
   if(entry.isFailed())
-    throw wruntime_error(_T("could not open file ") + filePath.string());
+    throw wruntime_error(_T("could not open file ") + filePath.wstring());
   return entry.getDigest(hashId);
 }
 

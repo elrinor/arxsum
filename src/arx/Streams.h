@@ -2,9 +2,9 @@
 #define __ARX_STREAMS_H__
 
 #include "config.h"
-#include "smart_ptr.h"
 #include <string>
 #include <sstream>
+#include <boost/shared_ptr.hpp>
 
 #ifndef EOF
 #  define EOF (-1)
@@ -24,7 +24,7 @@ namespace arx {
   class InputStream {
   private:
     friend class detail::StreamManager;
-    shared_ptr<detail::InputStreamInterface> impl;
+    boost::shared_ptr<detail::InputStreamInterface> impl;
 
   protected:
     /**
@@ -80,7 +80,7 @@ namespace arx {
   class OutputStream {
   private:
     friend class detail::StreamManager;
-    shared_ptr<detail::OutputStreamInterface> impl;
+    boost::shared_ptr<detail::OutputStreamInterface> impl;
 
   protected:
     /**
@@ -202,7 +202,7 @@ namespace arx {
   class Reader {
   private:
     friend class detail::StreamManager;
-    shared_ptr<detail::ReaderInterface> impl;
+    boost::shared_ptr<detail::ReaderInterface> impl;
 
   protected:
     /**
@@ -258,7 +258,7 @@ namespace arx {
   class Writer {
   private:
     friend class detail::StreamManager;
-    shared_ptr<detail::WriterInterface> impl;
+    boost::shared_ptr<detail::WriterInterface> impl;
 
   protected:
     /**
@@ -402,7 +402,7 @@ namespace arx {
 // -------------------------------------------------------------------------- //
 // Scanner
 // -------------------------------------------------------------------------- //
-  class Scanner: private BaseFromMember<shared_ptr<detail::ReaderBuffer> >, public std::wistream {
+  class Scanner: private BaseFromMember<boost::shared_ptr<detail::ReaderBuffer> >, public std::wistream {
   private:
     friend class detail::StreamManager;
 
@@ -417,7 +417,7 @@ namespace arx {
 // -------------------------------------------------------------------------- //
 // Printer
 // -------------------------------------------------------------------------- //
-  class Printer: private BaseFromMember<shared_ptr<detail::WriterBuffer> >, public std::wostream {
+  class Printer: private BaseFromMember<boost::shared_ptr<detail::WriterBuffer> >, public std::wostream {
   private:
     friend class detail::StreamManager;
 

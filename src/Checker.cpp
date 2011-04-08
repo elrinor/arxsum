@@ -8,14 +8,15 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_array.hpp>
 #include "arx/Exception.h"
-#include "arx/Collections.h"
 #include "arx/Converter.h"
 #include "Torrent.h"
+#include "ArrayList.h"
 #include "Output.h"
 #include "Hash.h"
 #include "Hasher.h"
 #include "Options.h"
 #include "Streams.h"
+#include "Map.h"
 
 using namespace std;
 using namespace arx;
@@ -121,10 +122,10 @@ namespace detail {
   public:
     virtual void error(CheckError error) {return;};
     virtual void error(std::wstring errorString) {return;};
-    virtual void begin(const boost::filesystem::wpath& checkSumFilePath) {return;};
-    virtual void beginFile(const boost::filesystem::wpath& filePath, const std::wstring& fileString) {return;};
+    virtual void begin(const boost::filesystem::path& checkSumFilePath) {return;};
+    virtual void beginFile(const boost::filesystem::path& filePath, const std::wstring& fileString) {return;};
     virtual void update(uint64 justProcessed) {return;};
-    virtual void endFile(arx::ArrayList<CheckError> errors) {return;};
+    virtual void endFile(ArrayList<CheckError> errors) {return;};
     virtual void end() {return;};
   };
 }
@@ -141,11 +142,11 @@ void CheckResultReporter::error(std::wstring errorString) {
   this->impl->error(errorString);
 }
 
-void CheckResultReporter::begin(const boost::filesystem::wpath& checkSumFilePath) {
+void CheckResultReporter::begin(const boost::filesystem::path& checkSumFilePath) {
   this->impl->begin(checkSumFilePath);
 }
 
-void CheckResultReporter::beginFile(const boost::filesystem::wpath& filePath, const std::wstring& fileString) {
+void CheckResultReporter::beginFile(const boost::filesystem::path& filePath, const std::wstring& fileString) {
   this->impl->beginFile(filePath, fileString);
 }
 
@@ -153,7 +154,7 @@ void CheckResultReporter::update(uint64 justProcessed) {
   this->impl->update(justProcessed);
 }
 
-void CheckResultReporter::endFile(arx::ArrayList<CheckError> errors) {
+void CheckResultReporter::endFile(ArrayList<CheckError> errors) {
   this->impl->endFile(errors);
 }
 
@@ -195,14 +196,14 @@ namespace detail {
     }
 
 
-    virtual void begin(const wpath& checkSumFilePath) {
+    virtual void begin(const path& checkSumFilePath) {
       *this->printer << "  " << checkSumFilePath << ": " << endl;
-      this->checkSumFileName = checkSumFilePath.native_file_string();
+      this->checkSumFileName = checkSumFilePath.native();
       this->errorCount = 0;
       this->okCount = 0;
     }
 
-    virtual void beginFile(const wpath& filePath, const wstring& fileString) {
+    virtual void beginFile(const path& filePath, const wstring& fileString) {
       this->progressCallBack = PrinterHasherCallBack((uint64) -1, this->printer);
       this->fileName = fileString;
       try {
@@ -287,7 +288,7 @@ public:
 class LineChecker {
 public:
   virtual bool applicableTo(wstring line) = 0;
-  virtual bool isDefaultFor(wpath fileName) = 0;
+  virtual bool isDefaultFor(path fileName) = 0;
   virtual void parseLine(wstring line, Map<wstring, CheckTask> m) = 0;
 };
 
@@ -311,8 +312,8 @@ public:
     return regex_match(line, this->lineRegex);
   }
 
-  virtual bool isDefaultFor(wpath fileName) {
-    return regex_match(to_lower_copy(fileName.leaf()), this->fileNameRegex);
+  virtual bool isDefaultFor(path fileName) {
+    return regex_match(to_lower_copy(fileName.filename().wstring()), this->fileNameRegex);
   }
 
   virtual void parseLine(wstring line, Map<wstring, CheckTask> m) {
@@ -347,7 +348,7 @@ public:
     return false;
   }
 
-  virtual bool isDefaultFor(wpath fileName) {
+  virtual bool isDefaultFor(path fileName) {
     //return contains(to_lower_copy(fileName.native_file_string()), _T("bsd"));
     return true; // small cheat to prioritize bsd format over sfv one
   }
@@ -381,11 +382,11 @@ private:
   static FileChecker* defaultChecker;
 
 public:
-  virtual bool applicableTo(wpath fileName) {
+  virtual bool applicableTo(path fileName) {
     return true;
   }
 
-  virtual void check(wpath fileName, CheckResultReporter reporter) {
+  virtual void check(path fileName, CheckResultReporter reporter) {
     for(int i = 0; i < fileCheckers.size(); i++) {
       if(fileCheckers[i]->applicableTo(fileName)) {
         fileCheckers[i]->check(fileName, reporter);
@@ -400,10 +401,10 @@ public:
 
 class TorrentFileChecker: public FileChecker {
 public:
-  virtual bool applicableTo(wpath fileName) {
-    return ends_with(to_lower_copy(fileName.native_file_string()), ".torrent");
+  virtual bool applicableTo(path fileName) {
+    return ends_with(to_lower_copy(fileName.native()), ".torrent");
   }
-  virtual void check(wpath fileName, CheckResultReporter reporter) {
+  virtual void check(path fileName, CheckResultReporter reporter) {
     checkTorrent(fileName, reporter);
   }
 };
@@ -423,12 +424,12 @@ public:
     }
   }
 
-  virtual bool applicableTo(wpath fileName) {
+  virtual bool applicableTo(path fileName) {
     return true;
   }
 
-  virtual void check(wpath fileName, CheckResultReporter reporter) {
-    wpath dir = fileName.branch_path();
+  virtual void check(path fileName, CheckResultReporter reporter) {
+    path dir = fileName.branch_path();
     if(dir == _T(""))
       dir = _T(".");
 
@@ -506,8 +507,8 @@ public:
     }
 
     for(Map<wstring, CheckTask>::iterator i = checkTasks.begin(); i != checkTasks.end(); i++) {
-      wpath filePath = i->second.getRightEntry().getPath();
-      wstring fileString = filePath.native_file_string();
+      path filePath = i->second.getRightEntry().getPath();
+      wstring fileString = filePath.native();
       if(!filePath.is_complete())
         filePath = dir / filePath;
 
@@ -534,7 +535,7 @@ public:
               errors.push_back(CheckError(CE_WRONGSIZE, rightEntry.getSize(), realEntry.getSize()));
           }
         }
-      } catch (exception) {
+      } catch (std::exception &) {
         errors.push_back(CheckError(CE_NOACCESS));
       }
       reporter.endFile(errors);
@@ -568,7 +569,7 @@ public:
     return;
   }
 
-  void check(wpath filePath) {
+  void check(path filePath) {
     checker.check(filePath, reporter);
   }
 };
@@ -580,7 +581,7 @@ Checker::Checker(CheckResultReporter reporter): impl(new CheckerImpl(reporter)) 
   return;
 }
 
-void Checker::check(boost::filesystem::wpath filePath)  {
+void Checker::check(boost::filesystem::path filePath)  {
   this->impl->check(filePath);
 }
 

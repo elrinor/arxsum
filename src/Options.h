@@ -3,11 +3,10 @@
 
 #include "config.h"
 #include <string>
-#include "arx/Collections.h"
 #include "Task.h"
+#include "ArrayList.h"
 
 using namespace std;
-using namespace arx;
 
 namespace detail {
   class OptionsImpl;
@@ -21,7 +20,7 @@ private:
   ::detail::OptionsImpl* impl;
 
 public:
-  void parse(arx::ArrayList<std::wstring> cmdLine);
+  void parse(ArrayList<std::wstring> cmdLine);
 
   void printSynopsis();
   void printVersion();

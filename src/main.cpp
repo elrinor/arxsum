@@ -1,8 +1,7 @@
 /*****************************************************************************
 ArXSum - HashSum generating / checking utility.
 
-Copyright (c) 2006 Alexander 'Elric' Fokin. All Rights Reserved. 
-ru.elric@gmail.com
+Copyright (c) 2006-2011 Alexander Fokin, apfokin@gmail.com.
  
 This product includes cryptographic software written by
 Eric Young (eay@cryptsoft.com)
@@ -30,6 +29,10 @@ TODO:
 - printf output
 - 2ch hash checking
 - faster crc --failed
+
+v1.3.5
+! ported to MSVC2010
+- removed unused files.
 
 v1.3.4
 * fixed an issue with flush() in arxlib
@@ -122,10 +125,9 @@ v1.0.0
 #include <boost/regex.hpp>
 #include <boost/timer.hpp>
 #include <boost/program_options.hpp>
-#include "arx/Collections.h"
 #include "arx/Streams.h"
-#include "arx/Main.h"
 #include "Hash.h"
+#include "ArrayList.h"
 #include "Options.h"
 #include "Streams.h"
 #include "FileEntry.h"
@@ -135,39 +137,44 @@ v1.0.0
 #include "Torrent.h"
 #include "Checker.h"
 
+#ifdef _WIN32
+#  define NOMINMAX
+#  include <Windows.h>
+#endif
+
 using namespace std;
 using namespace boost;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 using namespace arx;
 
-ArrayList<FileEntry> addToFileList(wpath dir, wregex fileNameMask, bool isRecursive, ArrayList<FileEntry> fileList) {
-  wdirectory_iterator end;
+ArrayList<FileEntry> addToFileList(path dir, wregex fileNameMask, bool isRecursive, ArrayList<FileEntry> fileList) {
+  directory_iterator end;
   try {
-    for(wdirectory_iterator itr(dir); itr != end; itr++) {
+    for(directory_iterator itr(dir); itr != end; itr++) {
       if(isRecursive && is_directory(itr->status())) {
         addToFileList(*itr, fileNameMask, isRecursive, fileList);
       } else if(is_regular(itr->status())) {
-        if(regex_match(itr->leaf(), fileNameMask)) {
-          wstring filePath = (dir / itr->leaf()).external_file_string();
+        if(regex_match(itr->path().filename().wstring(), fileNameMask)) {
+          wstring filePath = (dir / itr->path().filename()).native();
           if(starts_with(filePath, ".") && !starts_with(filePath, ".."))
             filePath = filePath.substr(2);
           fileList.add(FileEntry(filePath));
         }
       }
     }
-  } catch (exception) {
+  } catch (std::exception &) {
     // cout << e.what() << endl;
   }
   return fileList;
 }
 
 ArrayList<FileEntry> addToFileList(wstring filePathMask, bool isRecursive, ArrayList<FileEntry> fileList) {
-  wpath fullPath(filePathMask);
-  wpath dir = fullPath.branch_path();
+  path fullPath(filePathMask);
+  path dir = fullPath.branch_path();
   if(dir.empty())
-    dir = wpath(_T("."));
-  wstring mask = fullPath.leaf();
+    dir = path(_T("."));
+  wstring mask = fullPath.filename().wstring();
   struct regex_replacement {
     wregex expression;
     wstring replacement;
@@ -193,10 +200,22 @@ ArrayList<FileEntry> addToFileList(wstring filePathMask, bool isRecursive, Array
 
 ArrayList<FileEntry> fileList;
 
-int MAIN() {
-  PROCESS_COMMAND_LINE(options.parse);
+int main(int argc, char** argv) {
+  ArrayList<wstring> commandLine;
 
-  //checkTorrent(_T("[a4e]Rurouni_Kenshin_TV_01-25.torrent"));
+#ifdef _WIN32
+  {
+    int numArgs;
+    LPWSTR *lppCommandLine = CommandLineToArgvW(GetCommandLineW(), &numArgs);
+
+    for(int i = 0; i < numArgs; i++)
+      commandLine.push_back(lppCommandLine[i]);
+  }
+#else
+#  error Not implemented
+#endif
+
+  options.parse(commandLine);
 
   changeCinCoutEncoding(options.getInputEncoding(), options.getOutputEncoding());
 
@@ -241,7 +260,7 @@ int MAIN() {
         file.setSize(file_size(file.getPath()));
         sumSize += file.getSize();
         file.setDateTime(last_write_time(file.getPath()));
-      } catch (exception) {
+      } catch (std::exception &) {
         file.setFailed(true);
         wCout << "[error] cannot access file: " << file.getPath() << endl;
       }

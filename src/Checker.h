@@ -4,8 +4,8 @@
 #include "config.h"
 #include <boost/filesystem.hpp>
 #include <boost/shared_ptr.hpp>
-#include "arx/Collections.h"
 #include "arx/Streams.h"
+#include "ArrayList.h"
 #include "Hash.h"
 #include "Hasher.h"
 
@@ -64,10 +64,10 @@ public:
 
   void error(CheckError error);
   void error(std::wstring errorString);
-  void begin(const boost::filesystem::wpath& checkSumFilePath);
-  void beginFile(const boost::filesystem::wpath& filePath, const std::wstring& fileString);
+  void begin(const boost::filesystem::path& checkSumFilePath);
+  void beginFile(const boost::filesystem::path& filePath, const std::wstring& fileString);
   void update(uint64 justProcessed);
-  void endFile(arx::ArrayList<CheckError> errors);
+  void endFile(ArrayList<CheckError> errors);
   void end();
 };
 
@@ -88,7 +88,7 @@ private:
   boost::shared_ptr<CheckerImpl> impl;
 public:
   Checker(CheckResultReporter reporter = CheckResultReporter());
-  void check(boost::filesystem::wpath filePath);
+  void check(boost::filesystem::path filePath);
 };
 
 

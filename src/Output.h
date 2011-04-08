@@ -5,8 +5,8 @@
 #include <boost/shared_ptr.hpp>
 #include <string>
 #include "arx/Streams.h"
-#include "arx/Collections.h"
 #include "FileEntry.h"
+#include "ArrayList.h"
 #include "Task.h"
 
 enum {
@@ -31,7 +31,7 @@ private:
   uint32 ofId;
 public:
   OutputFormat(uint32 ofId);
-  void output(HashTask task, arx::ArrayList<FileEntry> data, arx::Printer* printer);
+  void output(HashTask task, ArrayList<FileEntry> data, arx::Printer* printer);
   std::string getName();
   uint32 getId();
   static std::string getName(uint32 ofId);
